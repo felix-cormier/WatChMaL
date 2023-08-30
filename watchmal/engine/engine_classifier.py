@@ -23,10 +23,15 @@ from time import strftime, localtime, time
 import sys
 from sys import stdout
 import copy
+import h5py
 
 # WatChMaL imports
 from watchmal.dataset.data_utils import get_data_loader
 from watchmal.utils.logging_utils import CSVData
+from watchmal.engine.tensor_plot_maker import *
+
+#whatever import
+from compare_outputs import dealWithOutputs
 
 class ClassifierEngine:
     """Engine for performing training or evaluation  for a classification network."""
@@ -223,7 +228,7 @@ class ClassifierEngine:
 
         # set model to training mode
         self.model.train()
-
+    
         # initialize epoch and iteration counters
         self.epoch = 0.
         self.iteration = 0
@@ -250,7 +255,6 @@ class ClassifierEngine:
             self.val_log.close()
 
     def run_epoch(self, epochs, report_interval, val_interval, num_val_batches, checkpointing, early_stopping_patience, save_interval, val_iter):
-
         early_stop = False 
         for self.epoch in range(epochs):
             if self.rank == 0:
@@ -278,7 +282,9 @@ class ClassifierEngine:
                 self.data = train_data['data']
                 self.labels = train_data['labels']
                 self.range = train_data['range']
-
+                #plotter_val(self.data, self.iteration, self.labels)        
+                #self.data = image_mover(self.data)
+                #plotter_val(self.data, self.iteration, self.labels, name = 'asfd')
                         # Call forward: make a prediction & measure the average error using data = self.data
                 res = self.forward(True)
 
@@ -292,7 +298,6 @@ class ClassifierEngine:
                         
                         # get relevant attributes of result for logging
                 train_metrics = {"iteration": self.iteration, "epoch": self.epoch, "loss": res["loss"], "accuracy": res["accuracy"]}
-                        
                         # record the metrics for the mini-batch in the log
                 self.train_log.record(train_metrics)
                 self.train_log.write()
@@ -303,9 +308,9 @@ class ClassifierEngine:
                     previous_iteration_time = iteration_time
                     iteration_time = time()
 
-                    print("... Iteration %d ... Epoch %d ... Step %d/%d  ... Training Classification Loss %1.3f ... Training Regression Loss %1.3f ... Training Accuracy %1.3f ... Time Elapsed %1.3f ... Iteration Time %1.3f" %
-                                (self.iteration, self.epoch+1, self.step, len(train_loader), res["loss_c"], res["loss_r"], res["accuracy"], iteration_time - start_time, iteration_time - previous_iteration_time))
-
+                    print("... Iteration %d ... Epoch %d ... Step %d/%d  ... Training Accuracy %1.3f ... Training Classification Loss %1.3f ... Training Regression Loss %1.3f ... Time Elapsed %1.3f ... Iteration Time %1.3f" %
+                                (self.iteration, self.epoch+1, self.step, len(train_loader), res["accuracy"], res["loss_c"], res["loss_r"], iteration_time - start_time, iteration_time - previous_iteration_time))
+                
                 if early_stop:
                     break
                                         
@@ -342,14 +347,13 @@ class ClassifierEngine:
                 print("Fetching new validation iterator...")
                 val_iter = iter(self.data_loaders["validation"])
                 val_data = next(val_iter)
-
+                #print('val_data = ', val_data)
             # extract the event data from the input data tuple
             self.data = val_data['data']
             self.labels = val_data['labels']
             self.range = val_data['range']
 
             val_res = self.forward(False)
-
             val_metrics["loss"] += val_res["loss"]
             val_metrics["loss_c"] += val_res["loss_c"]
             val_metrics["loss_r"] += val_res["loss_r"]
@@ -404,16 +408,20 @@ class ClassifierEngine:
         if self.do_early_stop:
             return True
 
+
     def evaluate(self, test_config):
         """Evaluate the performance of the trained model on the test set."""
         print("evaluating in directory: ", self.dirpath)
-
+        #inputPath =  '/fast_scratch/ipress/egamma/training/egamma_10mCylinder/combine_combine.hy'
+        # grab relevent parameters from hy file and only keep the values corresponding to those in the test set
+        #hy = h5py.File(inputPath, "r")
         
         # Variables to output at the end
         eval_loss = 0.0
         eval_acc = 0.0
         eval_iterations = 0
-        
+        #energies = np.array(hy['energies']).squeeze()
+        #print('energies:', energies)
         # Iterate over the validation set to calculate val_loss and val_acc
         with torch.no_grad():
             
@@ -428,6 +436,7 @@ class ClassifierEngine:
                 
                 # load data
                 self.data = eval_data['data']
+                #self.data = image_mover(self.data)
                 self.labels = eval_data['labels']
                 self.range = eval_data['range']
 
@@ -438,7 +447,7 @@ class ClassifierEngine:
 
                 eval_loss += result['loss']
                 eval_acc  += result['accuracy']
-                
+
                 # Add the local result to the final result
                 indices.extend(eval_indices.numpy())
                 labels.extend(self.labels.numpy())
@@ -448,7 +457,8 @@ class ClassifierEngine:
                 pred_range.extend(result["pred_range"].detach().cpu().numpy())
            
                 print("eval_iteration : " + str(it) + " eval_loss : " + str(result["loss"]) + " eval_accuracy : " + str(result["accuracy"]))
-            
+                #image_mover(self.data, eval_iterations)
+                #plotter_val(self.data, eval_iterations, self.labels)
                 eval_iterations += 1
         
         # convert arrays to torch tensors
@@ -548,8 +558,9 @@ class ClassifierEngine:
         best_validation_path = "{}{}{}{}".format(self.dirpath,
                                      str(self.model._get_name()),
                                      "BEST",
-                                     ".pth")
-
+                                    ".pth")
+        
+        #best_validation_path = 
         self.restore_state_from_file(best_validation_path)
     
     def restore_state(self, restore_config):

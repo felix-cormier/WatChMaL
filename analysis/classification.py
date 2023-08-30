@@ -9,7 +9,7 @@ from omegaconf.errors import OmegaConfBaseException
 from analysis.utils.binning import apply_binning, binned_quantiles, binned_efficiencies
 import analysis.utils.plotting as plot
 from analysis.read import WatChMaLOutput
-
+import pandas as pd
 
 def combine_softmax(softmaxes, labels, label_map=None):
     """
@@ -33,6 +33,7 @@ def combine_softmax(softmaxes, labels, label_map=None):
     """
     labels = np.atleast_1d(labels)
     if label_map is not None:
+        #print(labels)
         labels = [label_map[l] for l in labels]
     return np.sum(softmaxes[:, labels], axis=1)
 
@@ -231,12 +232,19 @@ class ClassificationRun(ABC):
         np.ndarray
             Array of indices that are both selected by `selection` and have true label in `select_labels`
         """
+        #print('select_labels:', select_labels)
         if selection is None:
             selection = self.selection
+            #print('this is getting run')
         if select_labels is not None:
+            #print('selection: ', np.unique(selection))
             s = np.zeros_like(self.true_labels, dtype=bool)
             s[selection] = True
+            #print('s = ', s)
             selection = s & np.isin(self.true_labels, np.atleast_1d(select_labels))
+            #print('selection 2 bottom:', np.unique(selection))
+            #print('np.isin:', np.isin(self.true_labels, np.atleast_1d(select_labels)))
+            #print('the other one is getting run')
         return selection
 
     def cut_with_constant_binned_efficiency(self, signal_labels, background_labels, efficiency, binning, selection=None,
@@ -322,7 +330,20 @@ class ClassificationRun(ABC):
             The threshold applied by the cut.
         """
         selection = self.select_labels(select_labels, selection)
+        
+        #selection = pd.DataFrame(selection)
+        #selection = selection.dropna()
+        #selection = np.array(selection)
         discriminator_values = self.discriminator(signal_labels, background_labels)
+        #discriminator_values = pd.DataFrame(discriminator_values)
+        #discriminator_values = discriminator_values.dropna()
+        #discriminator_values = np.array(discriminator_values)
+        #efficiency = pd.DataFrame(eval(efficiency))
+        #efficiency = efficiency.dropna()
+        #efficiency = np.array(efficiency)
+        #print('discrim:', discriminator_values)
+        #print('selection:', np.unique(selection))
+        #print('efficiency:', efficiency)
         try:
             threshold = np.quantile(discriminator_values[selection], 1 - efficiency)
         except IndexError as ex:

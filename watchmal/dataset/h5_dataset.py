@@ -85,7 +85,7 @@ class H5CommonDataset(Dataset, ABC):
         # perform label mapping now that labels have been initialised
         if self.label_set is not None:
             self.map_labels(self.label_set)
-
+    
     def map_labels(self, label_set):
         """
         Maps the labels of the dataset into a range of integers from 0 up to N-1, where N is the number of unique labels
@@ -97,11 +97,15 @@ class H5CommonDataset(Dataset, ABC):
             Set of all possible labels to map onto the range of integers from 0 to N-1, where N is the number of unique
             labels.
         """
+        print('test 1:', label_set)
         self.label_set = set(label_set)
+        print('test 2:', self.label_set)
         if self.initialized:
             labels = np.ndarray(self.labels.shape, dtype=int)
+            print('test 3:', labels)
             for i, l in enumerate(self.label_set):
                 labels[self.labels == l] = i
+                print('test 4:', labels)
             self.original_labels = self.labels
             self.labels = labels
 

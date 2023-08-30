@@ -55,7 +55,7 @@ def get_data_loader(dataset, batch_size, sampler, num_workers, is_distributed, s
     torch.utils.data.DataLoader
         dataloader created with instantiated dataset and (possibly wrapped) sampler
     """
-    dataset = instantiate(dataset, transforms=transforms)
+    dataset = instantiate(dataset)
     
     print(split_path)
     if split_path is not None and split_key is not None:
@@ -95,6 +95,7 @@ def get_transformations(transformations, transform_names):
     """
     if transform_names is not None:
         for transform_name in transform_names:
+            print('transform_names = ', transform_name)
             assert hasattr(transformations, transform_name), f"Error: There is no defined transform named {transform_name}"
         transform_funcs = [getattr(transformations, transform_name) for transform_name in transform_names]
         return transform_funcs

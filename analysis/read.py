@@ -132,7 +132,11 @@ class WatChMaLOutput(ABC, metaclass=ABCMeta):
         self._log_val = np.genfromtxt(directory + "/log_val.csv", delimiter=',', skip_header=1)
         train_iteration = self._log_train[0, :, 0]
         train_epoch = self._log_train[0, :, 1]
-        it_per_epoch = np.min(train_iteration[train_epoch == 1]) - 1
+        #print('train_iteration', train_iteration)
+        #print('train_epoch', np.unique(train_epoch))
+        #print('inside np.min(..)', train_iteration[train_epoch == 1])
+        #print('np.min(...) = ', np.min(train_iteration[train_epoch ==1]))
+        it_per_epoch = np.max(train_iteration[train_epoch == 0])
         self._train_log_epoch = train_iteration / it_per_epoch
         self._train_log_loss = np.mean(self._log_train[:, :, 2], axis=0)
         self._val_log_epoch = self._log_val[:, 0] / it_per_epoch

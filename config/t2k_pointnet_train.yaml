@@ -3,7 +3,7 @@ data:
   dataset:
     h5file: '/fast_scratch/fcormier/t2k/ml/wcsim/jan16_emu_fullCylinder_1M_1/combine_combine.hy'
     _target_: watchmal.dataset.pointnet.pointnet_dataset.PointNetDataset
-    geometry_file: /fast_scratch/WatChMaL/data/T2K/geo_files/geofile.npz
+    geometry_file: /fast_scratch/ipress/emu/geofile.npz
 model:
   _recursive_: false
   _target_: watchmal.model.classifier.Classifier
@@ -18,7 +18,7 @@ engine:
   _target_: watchmal.engine.engine_classifier.ClassifierEngine
 tasks:
   train:
-    epochs: 200
+    epochs: 5
     report_interval: 100
     val_interval: 100
     num_val_batches: 32
@@ -28,14 +28,14 @@ tasks:
     data_loaders:
       train:
         split_key: train_idxs
-        batch_size: 512
+        batch_size: 256
         num_workers: 4
         transforms:
         sampler:
           _target_: torch.utils.data.sampler.SubsetRandomSampler
       validation:
         split_key: val_idxs
-        batch_size: 1024
+        batch_size: 512
         num_workers: 4
         sampler:
           _target_: torch.utils.data.sampler.SubsetRandomSampler
@@ -50,12 +50,12 @@ tasks:
     data_loaders:
       test:
         split_key: test_idxs
-        batch_size: 1024
+        batch_size: 512
         num_workers: 4
         sampler:
           _target_: watchmal.dataset.samplers.SubsetSequentialSampler
 gpu_list: 
-- 6
-- 7
+- 4
+- 5
 seed: null
 dump_path: /fast_scratch/fcormier/t2k/ml/training/pointnet_jan20_test_epoch20_2/
