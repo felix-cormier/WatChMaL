@@ -1,7 +1,7 @@
 data:
-  split_path: '/fast_scratch/fcormier/t2k/ml/skdetsim/aug30_emu_skdetsim_smallFile_2/train_val_test_nFolds5_fold0.npz' 
+  split_path: '/fast_scratch_2/aferreira/t2k/ml/data/oct20_combine_flatE_oneClass/train_val_test_nFolds3_fold0.npz' 
   dataset:
-    h5file: '/fast_scratch/fcormier/t2k/ml/skdetsim/aug30_emu_skdetsim_smallFile_2/combine_combine.hy'
+    h5file: '/fast_scratch_2/aferreira/t2k/ml/data/oct20_combine_flatE_oneClass/combine_combine.hy'
     _target_: watchmal.dataset.cnn.cnn_dataset.CNNDataset
     pmt_positions_file: /fast_scratch/WatChMaL/data/T2K/image_files/skdetsim_imagefile.npy
     transforms:
@@ -17,10 +17,11 @@ model:
     _target_: watchmal.model.classifier.PassThrough
 engine:
   _target_: watchmal.engine.engine_classifier.ClassifierEngine
+  regression: False 
   restore_path: 0
 tasks:
   train:
-    epochs: 10
+    epochs: 0
     report_interval: 100
     val_interval: 100
     num_val_batches: 32
@@ -30,15 +31,15 @@ tasks:
     data_loaders:
       train:
         split_key: train_idxs
-        batch_size: 624
-        num_workers: 3
+        batch_size: 64
+        num_workers: 2
         transforms:
         sampler:
           _target_: torch.utils.data.sampler.SubsetRandomSampler
       validation:
         split_key: val_idxs
-        batch_size: 1024
-        num_workers: 4
+        batch_size: 64
+        num_workers: 2
         sampler:
           _target_: torch.utils.data.sampler.SubsetRandomSampler
     optimizers:
@@ -52,8 +53,8 @@ tasks:
     data_loaders:
       test:
         split_key: test_idxs
-        batch_size: 512
-        num_workers: 4
+        batch_size: 64
+        num_workers: 2
         sampler:
           _target_: torch.utils.data.sampler.SubsetRandomSampler
 gpu_list: 

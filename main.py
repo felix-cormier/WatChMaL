@@ -58,6 +58,7 @@ def main(config):
         os.makedirs(config.dump_path)
     
     print("Dump path: {}".format(config.dump_path))
+    print("Regression: {}".format(config.engine.regression))
 
     # initialize seed
     if config.seed is None:

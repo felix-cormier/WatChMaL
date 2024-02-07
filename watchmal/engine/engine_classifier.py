@@ -48,6 +48,7 @@ class ClassifierEngine:
         """
         # train for regression as well depending on given args
         self.regression = regression
+        print('self.regression =', self.regression)
 
         # create the directory for saving the log and dump files
         self.epoch = 0.
@@ -63,6 +64,7 @@ class ClassifierEngine:
         self.model = model
         self.device = torch.device(gpu)
         self.do_early_stop=False
+        self.best_iteration = 0
 
         # Setup the parameters to save given the model type
         if isinstance(self.model, DDP):
@@ -169,7 +171,7 @@ class ClassifierEngine:
             # Move the data and the labels to the GPU (if using CPU this has no effect)
             data = self.data.to(self.device)
             labels = self.labels.to(self.device)
-            positions = self.positions.to(self.device)
+            positions = np.squeeze(self.positions.to(self.device), axis=1)
 
             model_out = self.model(data)
             
@@ -250,14 +252,12 @@ class ClassifierEngine:
 
 
         # global training loop for multiple epochs
-
-        try:
+        if self.is_distributed:
             with self.model.join(throw_on_early_termination=True):
-                self.run_epoch(epochs, report_interval, val_interval, num_val_batches, checkpointing, early_stopping_patience, save_interval, val_iter)
-        except:
-            if not self.is_distributed:
-                print(f"Not running multi-processing: {self.rank}")
-                self.run_epoch(epochs, report_interval, val_interval, num_val_batches, checkpointing, early_stopping_patience, save_interval, val_iter)
+                    self.run_epoch(epochs, report_interval, val_interval, num_val_batches, checkpointing, early_stopping_patience, save_interval, val_iter)
+        else:
+            print(f"Not running multi-processing: {self.rank}")
+            self.run_epoch(epochs, report_interval, val_interval, num_val_batches, checkpointing, early_stopping_patience, save_interval, val_iter)
         
         self.train_log.close()
         if self.rank == 0:
@@ -409,14 +409,14 @@ class ClassifierEngine:
                     print('best (CLASSIFICATION) validation loss so far!: {}'.format(self.best_validation_loss))
                     go = True
 
-                if go:
-                    self.best_iteration = self.iteration
-                    self.save_state("BEST")
-                    val_metrics["saved_best"] = 1
+            if go:
+                self.best_iteration = self.iteration
+                self.save_state("BEST")
+                val_metrics["saved_best"] = 1
 
-                elif self.iteration - self.best_iteration >= int(early_stopping_patience*iterations_per_epoch):
-                    print("DOING EARLY STOPPING")
-                    self.do_early_stop=True
+            elif self.iteration - self.best_iteration >= int(early_stopping_patience*iterations_per_epoch):
+                print("DOING EARLY STOPPING")
+                self.do_early_stop=True
             
             print(f'CHECK early stopping: Iteration: {self.iteration}, best iteration: {self.best_iteration}, val loss: {val_metrics["loss"]}, val regression loss: {val_metrics["loss_r"]}, val classification loss: {val_metrics["loss_c"]}, best val classification loss: {self.best_validation_loss}, val acc: {val_metrics["accuracy"]}, patience: {early_stopping_patience*iterations_per_epoch}')
 

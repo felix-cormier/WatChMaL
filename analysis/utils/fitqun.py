@@ -6,7 +6,7 @@ import matplotlib
 from matplotlib import pyplot as plt
 import analysis.utils.binning as bins
 
-def read_fitqun_file(file_path):
+def read_fitqun_file(file_path, plotting=False, regression=False):
     with h5py.File(file_path,mode='r') as h5fw:
         print(h5fw.keys())
         fitqun_hash = get_rootfile_eventid_hash(np.ravel(h5fw['root_files']), np.ravel(h5fw['event_ids']), fitqun=True)
@@ -23,18 +23,28 @@ def read_fitqun_file(file_path):
         discr = discr.astype(int)
         temp = np.abs(labels-discr)
         print(f"fitqun avg: {1-np.sum(temp)/len(temp)}")
-        plt.hist(fitqun_1rmom, label = 'fiTQun', range=[0,1000], bins=10)
-        for mom in range(0,1000,100):
-            temp_discr = discr[(fitqun_1rmom > mom) & (fitqun_1rmom < mom+100) ]
-            temp_labels = labels[(fitqun_1rmom > mom) & (fitqun_1rmom < mom+100) ]
-            temp_error = np.abs(temp_labels-temp_discr)
-            print(f"mom: {mom}, fitqun avg: {1-np.sum(temp_error)/len(temp_error)}")
-        plt.xlabel("Momentum")
-        plt.ylabel("Counts")
-        #plt.ylim(90,100)
-        #plt.figure(e_mom_fig_fitqun.number)
-        plt.savefig(file_path + 'fitqun_reco_mom.png', format='png')
-        return discr, labels, fitqun_1rmom, fitqun_hash
+
+        if plotting:
+            plt.hist(fitqun_1rmom, label = 'fiTQun', range=[0,1000], bins=10)
+            for mom in range(0,1000,100):
+                temp_discr = discr[(fitqun_1rmom > mom) & (fitqun_1rmom < mom+100) ]
+                temp_labels = labels[(fitqun_1rmom > mom) & (fitqun_1rmom < mom+100) ]
+                temp_error = np.abs(temp_labels-temp_discr)
+                print(f"mom: {mom}, fitqun avg: {1-np.sum(temp_error)/len(temp_error)}")
+            plt.xlabel("Momentum")
+            plt.ylabel("Counts")
+            #plt.ylim(90,100)
+            #plt.figure(e_mom_fig_fitqun.number)
+            plt.savefig(file_path + 'fitqun_reco_mom.png', format='png')
+
+        if regression:
+            mu_1rpos = np.array(h5fw['mu_1rpos'])
+            e_1rpos = np.array(h5fw['e_1rpos'])
+            print(e_1rpos.shape, mu_1rpos.shape)
+            return (discr, labels, fitqun_1rmom, fitqun_hash), (mu_1rpos, e_1rpos)
+
+        else:
+            return discr, labels, fitqun_1rmom, fitqun_hash
 
 def make_fitqunlike_discr(softmax, energies, labels):
     discr = softmax[:,1]-softmax[:,0]

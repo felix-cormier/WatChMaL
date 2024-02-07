@@ -84,7 +84,7 @@ class Bottleneck(nn.Module):
 
 class ResNet(nn.Module):
 
-    def __init__(self, block, layers, num_input_channels, num_output_channels, stride=1, kernelSize=1, zero_init_residual=False,
+    def __init__(self, block, layers, num_input_channels, num_output_channels, stride=3, kernelSize=3, zero_init_residual=False,
                  conv_pad_mode='zeros'):
 
         super(ResNet, self).__init__()
