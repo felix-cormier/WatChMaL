@@ -15,14 +15,21 @@ def conv3x3(in_planes, out_planes, stride=1, padding_mode='zeros'):
 class BasicBlock(nn.Module):
     expansion = 1
 
-    def __init__(self, inplanes, planes, stride=1, downsample=None, conv_pad_mode='zeros'):
+    def __init__(self, inplanes, planes, stride=1, downsample=None, conv_pad_mode='zeros', norm=nn.BatchNorm2d):
         super(BasicBlock, self).__init__()
         
         self.conv1 = conv3x3(inplanes, planes, stride, conv_pad_mode)
+<<<<<<< HEAD
         self.bn1 = nn.GroupNorm(32, planes)
         self.relu = nn.ReLU(inplace=True)
         self.conv2 = conv3x3(planes, planes, padding_mode=conv_pad_mode)
         self.bn2 = nn.GroupNorm(32, planes)
+=======
+        self.bn1 = norm(planes)
+        self.relu = nn.ReLU(inplace=True)
+        self.conv2 = conv3x3(planes, planes, padding_mode=conv_pad_mode)
+        self.bn2 = norm(planes)
+>>>>>>> 16a2f74fdc026de35c6f0fbbb9583784e21011a5
         self.downsample = downsample
         self.stride = stride
 
@@ -48,15 +55,23 @@ class BasicBlock(nn.Module):
 class Bottleneck(nn.Module):
     expansion = 4
 
-    def __init__(self, inplanes, planes, stride=1, downsample=None, conv_pad_mode='zeros'):
+    def __init__(self, inplanes, planes, stride=1, downsample=None, conv_pad_mode='zeros', norm=nn.BatchNorm2d):
         super(Bottleneck, self).__init__()
         
         self.conv1 = conv1x1(inplanes, planes)
+<<<<<<< HEAD
         self.bn1 = nn.GroupNorm(32, planes)
         self.conv2 = conv3x3(planes, planes, stride, padding_mode=conv_pad_mode)
         self.bn2 = nn.GroupNorm(32, planes)
         self.conv3 = conv1x1(planes, planes * self.expansion)
         self.bn3 = nn.GroupNorm(32, planes * self.expansion)
+=======
+        self.bn1 = norm(planes)
+        self.conv2 = conv3x3(planes, planes, stride, padding_mode=conv_pad_mode)
+        self.bn2 = norm(planes)
+        self.conv3 = conv1x1(planes, planes * self.expansion)
+        self.bn3 = norm(planes * self.expansion)
+>>>>>>> 16a2f74fdc026de35c6f0fbbb9583784e21011a5
         self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
         self.stride = stride
@@ -84,8 +99,20 @@ class Bottleneck(nn.Module):
 
 class ResNet(nn.Module):
 
+<<<<<<< HEAD
     def __init__(self, block, layers, num_input_channels, num_output_channels, stride=1, kernelSize=1, zero_init_residual=False,
                  conv_pad_mode='zeros', dropout_p=0.):
+=======
+    def __init__(self, block, layers, num_input_channels, num_output_channels, zero_init_residual=False,
+                 conv_pad_mode='zeros', group_norm=False, n_groups=32):
+        if group_norm:
+            class GroupNorm(nn.GroupNorm):
+                def __init__(self, num_channels):
+                    super().__init__(n_groups, num_channels)
+            self.norm = GroupNorm
+        else:
+            self.norm = nn.BatchNorm2d
+>>>>>>> 16a2f74fdc026de35c6f0fbbb9583784e21011a5
 
         super(ResNet, self).__init__()
         print(f"CONV PAD MODE: {conv_pad_mode}")
@@ -93,12 +120,17 @@ class ResNet(nn.Module):
         self.inplanes = 64
         self.dropout_p = dropout_p
 
+<<<<<<< HEAD
         print('stride =', stride)
         print('kernelSize = ', kernelSize)
         print('dropout %= ', dropout_p)
 
         self.conv1 = nn.Conv2d(num_input_channels, 64, kernel_size=kernelSize, stride=stride, padding=0, bias=False)
         self.bn1 = nn.GroupNorm(32, 64)
+=======
+        self.conv1 = nn.Conv2d(num_input_channels, 64, kernel_size=1, stride=1, padding=0, bias=False)
+        self.bn1 = self.norm(64)
+>>>>>>> 16a2f74fdc026de35c6f0fbbb9583784e21011a5
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
@@ -133,13 +165,17 @@ class ResNet(nn.Module):
         if stride != 1 or self.inplanes != planes * block.expansion:
             downsample = nn.Sequential(
                 conv1x1(self.inplanes, planes * block.expansion, stride),
+<<<<<<< HEAD
                 nn.GroupNorm(32,planes * block.expansion),
+=======
+                self.norm(planes * block.expansion),
+>>>>>>> 16a2f74fdc026de35c6f0fbbb9583784e21011a5
             )
         layers = []
-        layers.append(block(self.inplanes, planes, stride, downsample, conv_pad_mode))
+        layers.append(block(self.inplanes, planes, stride, downsample, conv_pad_mode, self.norm))
         self.inplanes = planes * block.expansion
         for _ in range(1, blocks):
-            layers.append(block(self.inplanes, planes, conv_pad_mode=conv_pad_mode))
+            layers.append(block(self.inplanes, planes, conv_pad_mode=conv_pad_mode, norm=self.norm))
 
         return nn.Sequential(*layers)
 
