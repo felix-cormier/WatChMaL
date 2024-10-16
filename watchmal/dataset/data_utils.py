@@ -29,7 +29,7 @@ from matplotlib.patches import Ellipse
 
 
 def get_data_loader(dataset, batch_size, sampler, num_workers, is_distributed, seed, is_graph=False,
-                    split_path=None, split_key=None, pre_transforms=None, post_transforms=None):
+                    split_path=None, split_key=None, pre_transforms=None, post_transforms=None, drop_last=False):
     """
     Creates a dataloader given the dataset and sampler configs. The dataset and sampler are instantiated using their
     corresponding configs. If using DistributedDataParallel, the sampler is wrapped using DistributedSamplerWrapper.
@@ -87,9 +87,7 @@ def get_data_loader(dataset, batch_size, sampler, num_workers, is_distributed, s
     if is_graph:
         return PyGDataLoader(dataset, sampler=sampler, batch_size=batch_size, num_workers=num_workers)
     else:
-        # TODO: added drop_last, should decide if we want to keep this
-        #pin_memory=True seems to fail when using CPU
-        return DataLoader(dataset, sampler=sampler, batch_size=batch_size, num_workers=num_workers, drop_last=False,
+        return DataLoader(dataset, sampler=sampler, batch_size=batch_size, num_workers=num_workers, drop_last=drop_last,
                           persistent_workers=(num_workers > 0), pin_memory=True)
 
 

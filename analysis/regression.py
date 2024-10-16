@@ -3,7 +3,7 @@ import tabulate
 import matplotlib.pyplot as plt
 from abc import ABC, abstractmethod
 from analysis.read import WatChMaLOutput
-import analysis.utils.math as math
+import watchmal.utils.math as math
 import analysis.utils.binning as bins
 from analysis.utils.plotting import plot_binned_values
 
@@ -49,8 +49,7 @@ def plot_histograms(runs, quantity, selection=None, ax=None, fig_size=None, x_la
     else:
         fig = ax.get_figure()
     for r in runs:
-        if selection is None:
-            run_selection = r.selection if selection is None else selection
+        run_selection = r.selection if selection is None else selection
         data = r.get_quantity(quantity)[run_selection].flatten()
         args = {**hist_args, **r.plot_args}
         ax.hist(data, **args)
@@ -712,7 +711,13 @@ class WatChMaLDirectionRegression(WatChMaLRegression, DirectionPrediction):
     def direction_prediction(self):
         """Direction predictions calculated from predicted angles output from the WatChMaL regression run"""
         if self._direction_prediction is None:
-            self._direction_prediction = math.direction_from_angles(self.predictions, self.zenith_axis)
+            try:
+                self._direction_prediction = math.direction_from_angles(self.predictions, self.zenith_axis)
+            except (FileNotFoundError, TypeError):
+                self.predictions_name = "directions"
+                norm = np.linalg.norm(self.predictions, axis=1, keepdims=True)
+                norm[norm == 0] = 1
+                self._direction_prediction = self.predictions / norm
         return self._direction_prediction
 
 
