@@ -10,8 +10,8 @@ from torch import from_numpy
 import numpy as np
 
 # WatChMaL imports
-from WatChMaL.watchmal.dataset.h5_dataset import H5Dataset
-import WatChMaL.watchmal.dataset.data_utils as du
+from watchmal.dataset.h5_dataset import H5Dataset
+import watchmal.dataset.data_utils as du
 
 class PointNetT2KDataset(H5Dataset):
 

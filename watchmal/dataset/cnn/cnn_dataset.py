@@ -217,8 +217,10 @@ class CNNDataset(H5Dataset):
                 data_dict = t(data_dict)
         if 0:
             du.save_fig(data_dict["data"][1],True, counter = self.counter)
+        #print("Double Cover")
         processed_data = self.double_cover(data_dict["data"])
         #processed_data = du.apply_random_transformations(self.transforms, processed_data, counter = self.counter)
+        data_dict["data"] = processed_data
 
 
         #print(f"DATA SHAPE: {data_dict['data'].shape}")
@@ -285,7 +287,7 @@ class CNNDataset(H5Dataset):
         The channels of the PMTs within mPMTs also have the appropriate permutation applied.
         """
         #print('applying 180 flip')
-        return self.horizontal_image_flip(self.vertical_flip(data))
+        return self.horizontal_image_flip(self.vertical_image_flip(data))
 
     def horizontal_reflection(self, data_dict):
         """Takes CNN input data and truth info and performs horizontal flip, permuting mPMT channels where needed."""
@@ -1036,5 +1038,6 @@ class CNNDatasetScale(CNNDatasetDeadPMT):
             if random.getrandbits(1):
                 data_dict = t(data_dict)
         
+        #print("Double Cover")
         processed_data = self.double_cover(data_dict["data"])
         return data_dict

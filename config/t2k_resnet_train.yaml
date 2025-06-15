@@ -1,24 +1,21 @@
 data:
-  split_path: '/scratch/fcormier/t2k/ml/output_skdetsim/jan23_electrons_forRegression_5M_1/train_val_test_gt200Hits_FC_nFolds20_fold0.npz' 
+  split_path: '/scratch/fcormier//t2k/ml/output_skdetsim//jun12_electronsCombine_1/train_val_test_gt200Hits_fcM50_2000MeVCut_nFolds30_fold0.npz' 
   dataset:
-    h5file: '$SLURM_TMPDIR/digi_combine.hy'
+    h5file: '$SLURM_TMPDIR/multi_combine.hy'
     _target_: watchmal.dataset.cnn.cnn_dataset.CNNDatasetDeadPMT
-    pmt_positions_file: /fast_scratch/WatChMaL/data/T2K/image_files/skdetsim_imagefile.npy
+    pmt_positions_file: /scratch/fcormier/t2k/ml/image_files/skdetsim_imagefile.npy
     use_positions: False
+    use_times: True
     geometry_file: /home/fcormier/t2k/ml/training/t2k_ml_training/data/geofile_skdetsim.npz
     channel_scaling:
       time: [400, 1000]
-    change_dead_pmts: True
-    dead_pmt_var: 0.01
-    dead_pmt_rate: 0.01
-    use_hit_mask: True
 model:
-  _target_: watchmal.model.resnet.resnet18
-  num_input_channels: 3
+  _target_: watchmal.model.resnet.resnet50
+  num_input_channels: 2
   num_output_channels: 1
   stride: 1
   kernelSize: 1
-  dropout_p: 0.
+  dropout_p: 0.1
   conv_pad_mode: 'circular'
 engine:
   _target_: watchmal.engine.regression.RegressionEngine
@@ -26,8 +23,8 @@ engine:
 tasks:
   train:
     epochs: 50
-    val_interval: 10
-    num_val_batches: 10
+    val_interval: 200
+    num_val_batches: 50
     checkpointing: false
     loss:
       _target_: torch.nn.HuberLoss
@@ -35,14 +32,14 @@ tasks:
     data_loaders:
       train:
         split_key: train_idxs
-        batch_size: 50
-        num_workers: 2
+        batch_size: 150
+        num_workers: 10
         sampler:
           _target_: torch.utils.data.sampler.SubsetRandomSampler
       validation:
         split_key: val_idxs
-        batch_size: 200
-        num_workers: 2
+        batch_size: 400
+        num_workers: 6
         sampler:
           _target_: torch.utils.data.sampler.SubsetRandomSampler
     optimizers:
@@ -61,9 +58,9 @@ tasks:
         sampler:
           _target_: torch.utils.data.sampler.SubsetRandomSampler
 gpu_list: 
-- 4
-- 5
-- 6
-- 7
+- 0
+- 1
+- 2
+- 3
 seed: null
 dump_path: ./outputs/

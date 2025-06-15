@@ -1,40 +1,44 @@
 data:
-  split_path: '/scratch/fcormier/t2k/ml/output_skdetsim/apr3_eMuPiPlus_1500MeV_2M_1/train_val_test_gt200Hits_nFolds20_fold0.npz' 
+  split_path: '/scratch/fcormier/t2k/ml/output_skdetsim/may4_2025_eMuPiPlus_combine_1/train_val_test_gt200Hits_fcM50_2000MeVCut_nFolds20_fold0.npz' 
   dataset:
-    h5file: '//fast_scratch_2/fcormier/t2k/jan28_electronsOnly_5M/digi_combine.hy'
-    _target_: watchmal.dataset.cnn.cnn_dataset.CNNDataset
+    h5file: '$SLURM_TMPDIR/multi_combine.hy'
+    _target_: watchmal.dataset.cnn.cnn_dataset.CNNDatasetDeadPMT
     pmt_positions_file: /scratch/fcormier/t2k/ml/image_files/skdetsim_imagefile.npy
+    use_times: True
+    geometry_file: /home/fcormier/t2k/ml/training/t2k_ml_training/data/geofile_skdetsim.npz
     channel_scaling:
-      time: [950, 10]
+      time: [400, 1000]
 model:
   _target_: watchmal.model.resnet.resnet18
-  num_input_channels: 5
+  dropout_p: 0.1
+  num_input_channels: 2
   num_output_channels: 3
   stride: 1
   kernelSize: 1
   dropout_p: 0.
+  conv_pad_mode: 'circular'
 engine:
   _target_: watchmal.engine.classification.ClassifierEngine
   truth_key: 'labels'
   label_set: [0,1,2]
 tasks:
   train:
-    epochs: 30
-    val_interval: 100
-    num_val_batches: 4
+    epochs: 50
+    val_interval: 200
+    num_val_batches: 50
     checkpointing: false
     loss:
       _target_: torch.nn.CrossEntropyLoss
     data_loaders:
       train:
         split_key: train_idxs
-        batch_size: 500
-        num_workers: 12
+        batch_size: 150
+        num_workers: 10
         sampler:
           _target_: torch.utils.data.sampler.SubsetRandomSampler
       validation:
         split_key: val_idxs
-        batch_size: 1000
+        batch_size: 400
         num_workers: 6
         sampler:
           _target_: torch.utils.data.sampler.SubsetRandomSampler
