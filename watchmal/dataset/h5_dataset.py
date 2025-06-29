@@ -1,6 +1,9 @@
 """
 Class for loading data in h5 format
 """
+
+import pickle
+
 import torch
 # torch imports
 from torch.utils.data import Dataset
@@ -55,10 +58,14 @@ class H5CommonDataset(Dataset, ABC):
     hit_time          (n_hits,)       float32    Time of the hit
     ====================================================================================================================
     """
-    def __init__(self, h5_path):
+    def __init__(self, h5_path, decayE=False):
         self.h5_path = h5_path
         with h5py.File(self.h5_path, 'r') as h5_file:
             self.dataset_length = h5_file["labels"].shape[0]
+
+        self.decayE = decayE
+
+        print(f"Decay e: {self.decayE}")
 
         self.label_set = None
 
@@ -75,19 +82,26 @@ class H5CommonDataset(Dataset, ABC):
         # self.event_ids  = np.array(self.h5_file["event_ids"])
         # self.root_files = np.array(self.h5_file["root_files"])
         self.labels = np.array(self.h5_file["labels"])
+        if self.decayE:
+            self.labels = np.ones(len(self.labels))
         self.positions  = np.array(self.h5_file["positions"])
         self.directions  = np.array(self.h5_file["directions"])
         self.angles     = np.array(self.h5_file["angles"])
         self.energies   = np.array(self.h5_file["energies"])
         self.rootfiles   = np.array(self.h5_file["root_files"])
+        self.event_ids   = np.array(self.h5_file["event_ids"])
         # if "veto" in self.h5_file.keys():
         #     self.veto  = np.array(self.h5_file["veto"])
         #     self.veto2 = np.array(self.h5_file["veto2"])
-        self.event_hits_index = np.append(self.h5_file["event_hits_index"], self.h5_file["hit_pmt"].shape[0]).astype(np.int64)
+        if self.decayE:
+            self.event_hits_index = np.append(self.h5_file["event_hits_decayE_index"], self.h5_file["hit_decayE_pmt"].shape[0]).astype(np.int64)
+            self.hdf5_hit_pmt = self.h5_file["hit_decayE_pmt"]
+            self.hdf5_hit_time = self.h5_file["hit_decayE_time"]
+        else:
+            self.event_hits_index = np.append(self.h5_file["event_hits_index"], self.h5_file["hit_pmt"].shape[0]).astype(np.int64)
+            self.hdf5_hit_pmt = self.h5_file["hit_pmt"]
+            self.hdf5_hit_time = self.h5_file["hit_time"]
         
-        self.hdf5_hit_pmt = self.h5_file["hit_pmt"]
-        self.hdf5_hit_time = self.h5_file["hit_time"]
-
         self.hit_pmt = np.memmap(self.h5_path, mode="r", shape=self.hdf5_hit_pmt.shape,
                                  offset=self.hdf5_hit_pmt.id.get_offset(),
                                  dtype=self.hdf5_hit_pmt.dtype)
@@ -122,6 +136,8 @@ class H5CommonDataset(Dataset, ABC):
                 labels[self.labels == l] = i
             self.original_labels = self.labels
             self.labels = labels
+            #For stopping muons
+            self.labels[self.labels==3] = 0
 
     @abstractmethod
     def load_hits(self):
@@ -143,7 +159,10 @@ class H5CommonDataset(Dataset, ABC):
         momenta = mom_from_energies(self.energies[item].copy(), self.labels[item])
 
         #print(f'Positions in h5: {np.mean(np.abs(self.positions[item].copy()/1800),axis=0)}')
+        buff = torch.tensor(np.frombuffer(self.rootfiles[item], dtype=np.uint8))
 
+
+        #self.labels[item]=0
         data_dict = {
             "iteration": 0,
             "labels": self.labels[item].astype(np.int64),
@@ -154,7 +173,8 @@ class H5CommonDataset(Dataset, ABC):
             "positions": positions,
             "directions": np.squeeze(self.directions[item].copy(), axis=0),
             # "event_ids": self.event_ids[item],
-            "root_files": self.rootfiles[item],
+            "root_files": buff,
+            "event_ids": self.event_ids[item],
             "indices": item
         }
         return data_dict
@@ -172,12 +192,16 @@ class H5Dataset(H5CommonDataset, ABC):
     hit_charge  (n_hits,)  float32    Charge of the digitized hit
     =============================================================
     """
-    def __init__(self, h5_path):
-        H5CommonDataset.__init__(self, h5_path)
+    def __init__(self, h5_path, decayE=False):
+        H5CommonDataset.__init__(self, h5_path, decayE=decayE)
         
     def load_hits(self):
         """Creates a memmap for the digitized hit charge data."""
-        self.hdf5_hit_charge = self.h5_file["hit_charge"]
+        print(f"Decay e: {self.decayE}")
+        if self.decayE:
+            self.hdf5_hit_charge = self.h5_file["hit_decayE_charge"]
+        else:
+            self.hdf5_hit_charge = self.h5_file["hit_charge"]
         self.hit_charge = np.memmap(self.h5_path, mode="r", shape=self.hdf5_hit_charge.shape,
                                     offset=self.hdf5_hit_charge.id.get_offset(),
                                     dtype=self.hdf5_hit_charge.dtype)

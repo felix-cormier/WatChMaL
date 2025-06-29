@@ -39,7 +39,7 @@ class CNNDataset(H5Dataset):
     event-display-like format.
     """
 
-    def __init__(self, h5file, pmt_positions_file, use_times=True, use_charges=True, use_positions=False, transforms=None, one_indexed=True, channel_scaling=None, geometry_file=None):
+    def __init__(self, h5file, pmt_positions_file, use_times=True, use_charges=True, use_positions=False, transforms=None, one_indexed=True, channel_scaling=None, geometry_file=None, decayE=False):
         """
         Constructs a dataset for CNN data. Event hit data is read in from the HDF5 file and the PMT charge and/or time
         data is formatted into an event-display-like image for input to a CNN. Each pixel of the image corresponds to
@@ -63,7 +63,7 @@ class CNNDataset(H5Dataset):
             Whether the PMT IDs in the H5 file are indexed starting at 1 (like SK tube numbers) or 0 (like WCSim PMT
             indexes). By default, zero-indexing is assumed.
         """
-        super().__init__(h5file)
+        super().__init__(h5file, decayE)
         
         self.pmt_positions = np.load(pmt_positions_file)#['pmt_image_positions']
         self.use_times = use_times
@@ -197,10 +197,6 @@ class CNNDataset(H5Dataset):
         else:
             processed_data = from_numpy(self.process_data(self.event_hit_pmts, hit_data["time"], hit_data["charge"], iteration=self.counter))
         
-        # if self.counter <= 10:
-        #     du.save_fig_dead(processed_data[0], True,  None, None, y_label='PMT Time', counter=self.counter, output_path=f'/data/thoriba/t2k/plots/dead_test/time_CNN/', dead_pmt_percent=-1)
-        #     du.save_fig_dead(processed_data[1], True,  None, None, y_label='PMT Charge', counter=self.counter, output_path=f'/data/thoriba/t2k/plots/dead_test/charge_CNN/', dead_pmt_percent=-1)
-        #     du.save_fig_dead(processed_data[2], True,  None, None, y_label='PMT Dead (1)', counter=self.counter, output_path=f'/data/thoriba/t2k/plots/dead_test/dead_mask_withoutdead_CNN/', dead_pmt_percent=-1)
         
 
         #self.save_fig(processed_data[0],False)
@@ -217,7 +213,13 @@ class CNNDataset(H5Dataset):
                 data_dict = t(data_dict)
         if 0:
             du.save_fig(data_dict["data"][1],True, counter = self.counter)
-        processed_data = self.double_cover(data_dict["data"])
+        #processed_data = self.double_cover(data_dict["data"])
+
+        data_dict["data"] = processed_data
+        if self.counter <= 10:
+        #     du.save_fig_dead(processed_data[0], True,  None, None, y_label='PMT Time', counter=self.counter, output_path=f'/data/thoriba/t2k/plots/dead_test/time_CNN/', dead_pmt_percent=-1)
+            du.save_fig_dead(data_dict["data"][1], True,  None, None, y_label='PMT Charge', counter=self.counter, output_path=f'/home/fcormier/t2k/ml/t2k_ml_training/plots/charge_CNN_decayE/', dead_pmt_percent=-1)
+        #     du.save_fig_dead(processed_data[2], True,  None, None, y_label='PMT Dead (1)', counter=self.counter, output_path=f'/data/thoriba/t2k/plots/dead_test/dead_mask_withoutdead_CNN/', dead_pmt_percent=-1)
         #processed_data = du.apply_random_transformations(self.transforms, processed_data, counter = self.counter)
 
 
@@ -285,7 +287,7 @@ class CNNDataset(H5Dataset):
         The channels of the PMTs within mPMTs also have the appropriate permutation applied.
         """
         #print('applying 180 flip')
-        return self.horizontal_image_flip(self.vertical_flip(data))
+        return self.horizontal_image_flip(self.vertical_image_flip(data))
 
     def horizontal_reflection(self, data_dict):
         """Takes CNN input data and truth info and performs horizontal flip, permuting mPMT channels where needed."""
@@ -499,7 +501,7 @@ class CNNDatasetDeadPMT(CNNDataset):
     """
 
     def __init__(self, h5file, pmt_positions_file, use_times=True, use_charges=True, use_positions=False, transforms=None, one_indexed=True, channel_scaling=None, geometry_file=None,
-                 dead_pmt_rate=None, dead_pmt_seed=None, dead_pmts_file=None, use_dead_pmt_mask=False, use_hit_mask=False, change_dead_pmts=False, dead_pmt_var=None):
+                 dead_pmt_rate=None, dead_pmt_seed=None, dead_pmts_file=None, use_dead_pmt_mask=False, use_hit_mask=False, change_dead_pmts=False, dead_pmt_var=None, decayE=False):
         """
         Constructs a dataset for CNN data. Event hit data is read in from the HDF5 file and the PMT charge and/or time
         data is formatted into an event-display-like image for input to a CNN. Each pixel of the image corresponds to
@@ -538,7 +540,7 @@ class CNNDatasetDeadPMT(CNNDataset):
         dead_pmt_var: bool
             Variation in percentage of dead PMTs. None by default.
         """
-        super().__init__(h5file, pmt_positions_file, use_times=use_times, use_charges=use_charges, use_positions=use_positions, transforms=transforms, one_indexed=one_indexed, channel_scaling=channel_scaling, geometry_file=geometry_file)
+        super().__init__(h5file, pmt_positions_file, use_times=use_times, use_charges=use_charges, use_positions=use_positions, transforms=transforms, one_indexed=one_indexed, channel_scaling=channel_scaling, geometry_file=geometry_file, decayE=decayE)
         self.use_dead_pmt_mask = use_dead_pmt_mask
         self.dead_pmt_rate = dead_pmt_rate
         self.dead_pmt_seed = dead_pmt_seed if dead_pmt_seed is not None else 42
@@ -547,6 +549,7 @@ class CNNDatasetDeadPMT(CNNDataset):
         self.dead_pmt_var = dead_pmt_var
         self.iteration=0
         self.batch_size=-1
+        self.decayE = decayE
 
         self.use_hit_mask = use_hit_mask
 
@@ -557,6 +560,7 @@ class CNNDatasetDeadPMT(CNNDataset):
         
         print('CNNdead: data_size', self.data_size)
         print('CNNdead: data_size.shape', self.data_size.shape)
+        print(f"Decay electrons: {decayE}")
         
         self.set_dead_pmts()
     
@@ -570,6 +574,7 @@ class CNNDatasetDeadPMT(CNNDataset):
         """
         if self.dead_pmts_file is not None:
             self.dead_pmts = np.loadtxt(self.dead_pmts_file, dtype=int)
+            self.dead_pmts = np.arange(7651,9397,1)
             if self.one_indexed:
                 self.dead_pmts = self.dead_pmts - 1
             if iteration < 10:
@@ -659,8 +664,13 @@ class CNNDatasetDeadPMT(CNNDataset):
                 print('non-zero chrgs in data (before)', ch_pre)
 
             # kill dead PMTs according to dead PMT IDs
-            data[0, hit_rows_d, hit_cols_d] = .0
-            data[1, hit_rows_d, hit_cols_d] = .0
+            #data[0, hit_rows_d, hit_cols_d] = .0
+            #data[1, hit_rows_d, hit_cols_d] = .0
+            #Reduce charge instead of kill?
+            subset = data[0, hit_rows_d, hit_cols_d].copy() 
+            subset[subset >0] += 0.005
+            #(data[0, hit_rows_d, hit_cols_d])[data[0, hit_rows_d, hit_cols_d] > 0] += 0.1
+            data[0, hit_rows_d, hit_cols_d] = subset
 
             
             if self.use_positions:

@@ -9,6 +9,8 @@ from datetime import datetime
 from abc import ABC, abstractmethod
 import logging
 
+import pickle
+
 # hydra imports
 from hydra.utils import instantiate
 
@@ -340,12 +342,18 @@ class ReconstructionEngine(ABC):
                 # Add the local result to the final result
                 if self.step == 0:
                     indices = eval_data['indices']
+                    positions = eval_data['positions']
+                    event_ids = eval_data['event_ids']
+                    root_files = eval_data['root_files']
                     labels = eval_data['labels']
                     targets = self.target
                     eval_outputs = outputs
                     eval_metrics = metrics
                 else:
                     indices = torch.cat((indices, eval_data['indices']))
+                    positions = torch.cat((positions, eval_data['positions']))
+                    event_ids = torch.cat((event_ids, eval_data['event_ids']))
+                    root_files = torch.cat((root_files, eval_data['root_files']))
                     labels = torch.cat((labels, eval_data['labels']))
                     targets = torch.cat((targets, self.target))
                     for k in eval_outputs.keys():
@@ -364,6 +372,9 @@ class ReconstructionEngine(ABC):
         for k in eval_metrics.keys():
             eval_metrics[k] /= self.step+1
         eval_outputs["indices"] = indices.to(self.device)
+        eval_outputs["positions"] = positions.to(self.device)
+        eval_outputs["event_ids"] = event_ids.to(self.device)
+        eval_outputs["root_files"] = root_files.to(self.device)
         eval_outputs["labels"] = labels.to(self.device)
         eval_outputs[self.truth_key] = targets
         # Gather results from all processes

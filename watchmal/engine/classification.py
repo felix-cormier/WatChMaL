@@ -5,7 +5,7 @@ from watchmal.engine.reconstruction import ReconstructionEngine
 
 class ClassifierEngine(ReconstructionEngine):
     """Engine for performing training or evaluation for a classification network."""
-    def __init__(self, truth_key, model, rank, gpu, dump_path, label_set=None):
+    def __init__(self, truth_key, model, rank, gpu, dump_path, label_set=None, eval_directory='/'):
         """
         Parameters
         ==========
@@ -26,6 +26,7 @@ class ClassifierEngine(ReconstructionEngine):
         # create the directory for saving the log and dump files
         super().__init__(truth_key, model, rank, gpu, dump_path)
         self.softmax = torch.nn.Softmax(dim=1)
+        self.eval_directory=eval_directory
         self.label_set = label_set
 
     def configure_data_loaders(self, data_config, loaders_config, is_distributed, seed):
@@ -66,6 +67,7 @@ class ClassifierEngine(ReconstructionEngine):
             # Move the data and the labels to the GPU (if using CPU this has no effect)
             model_out = self.model(self.data)
             softmax = self.softmax(model_out)
+            #print(f"MODEL OUT: {softmax}, TARGET: {self.target}")
             predicted_labels = torch.argmax(model_out, dim=-1)
             self.loss = self.criterion(model_out, self.target)
             accuracy = (predicted_labels == self.target).sum() / float(predicted_labels.nelement())

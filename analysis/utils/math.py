@@ -284,3 +284,7 @@ def binomial_error(x):
         return 0
     p = np.count_nonzero(x)/trials
     return np.sqrt(p*(1-p)/trials)
+
+def calc_3D_distance(array1, array2):
+    distance = np.sqrt( np.add( np.add( np.square(np.subtract(array1[:,0], array2[:,0])), np.square(np.subtract(array1[:,1], array2[:,1]))), np.square(np.subtract(array1[:,1], array2[:,1])) ) )
+    return distance

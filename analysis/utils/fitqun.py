@@ -74,6 +74,14 @@ def read_fitqun_file(file_path, plotting=False, regression=False, fq_truth=False
         e_1rmom = np.ravel(h5fw['e_1rmom'])
         mu_1rmom = np.ravel(h5fw['mu_1rmom'])
         labels = np.ravel(h5fw['labels'])
+        try:
+            nhit = np.ravel(h5fw['nhit'])
+        except KeyError:
+            nhit = np.empty(0)
+        try:
+            qtot = np.ravel(h5fw['qtot'])
+        except KeyError:
+            qtot = np.empty(0)
         print(f"LABELS: {np.unique(labels,return_counts=True)}")
         fitqun_1rmom = np.ones(len(e_1rmom))
         fitqun_1rmom[labels==0] = mu_1rmom[labels==0]
@@ -101,7 +109,6 @@ def read_fitqun_file(file_path, plotting=False, regression=False, fq_truth=False
             direction = np.array(h5fw['direction'])
             momentum = np.array(h5fw['momentum'])
             truth = [position, direction, momentum]
-            nhit = np.ravel(h5fw['nhit'])
             plot_fq_truth(position, direction, momentum, nhit, labels, legend_label = "fiTQun truth inputs", output_path = "/data/fcormier/t2k/ml/training/plots/fitqun_stopMu_inputs_1")
         if plotting:
              plt.hist(fitqun_1rmom, label = 'fiTQun', range=[0,1000], bins=10)
@@ -129,7 +136,7 @@ def read_fitqun_file(file_path, plotting=False, regression=False, fq_truth=False
              if fq_truth:
                 return (discr, labels, fitqun_1rmom, fitqun_hash), (mu_1rpos, e_1rpos, pi_1rpos, mu_1rdir, e_1rdir, pi_1rdir, mu_1rmom, e_1rmom, pi_1rmom), truth, nhit
              else:
-                return (discr, labels, fitqun_1rmom, fitqun_hash), (mu_1rpos, e_1rpos, pi_1rpos, mu_1rdir, e_1rdir, pi_1rdir, mu_1rmom, e_1rmom, pi_1rmom), truth
+                return (discr, labels, fitqun_1rmom, fitqun_hash), (mu_1rpos, e_1rpos, pi_1rpos, mu_1rdir, e_1rdir, pi_1rdir, mu_1rmom, e_1rmom, pi_1rmom), truth, nhit, qtot
 
         else:
             if fq_truth:
@@ -198,6 +205,7 @@ def plot_fitqun_comparison(plot_output, ax_e, ax_fitqun_e, ax_mu, ax_fitqun_mu, 
         e_ml = ax_e.lines[0].get_ydata()
         e_fitqun = ax_fitqun_e.lines[0].get_ydata()
         mu_ml = ax_mu.lines[0].get_ydata()
+        print(f"mu fitqu: {ax_fitqun_mu}, lines: {ax_fitqun_mu.lines}")
         mu_fitqun = ax_fitqun_mu.lines[0].get_ydata()
         if print_out_acc:
             print(f'x: {ve_xdata}')
