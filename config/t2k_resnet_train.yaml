@@ -8,30 +8,33 @@ data:
     geometry_file: /home/fcormier/t2k/ml/training/t2k_ml_training/data/geofile_skdetsim.npz
     channel_scaling:
       time: [400, 1000]
-    change_dead_pmts: True
-    dead_pmt_var: 0.01
-    dead_pmt_rate: 0.01
-    use_hit_mask: True
+    #change_dead_pmts: True
+    #dead_pmt_var: 0.01
+    #dead_pmt_rate: 0.01
+    #use_hit_mask: True
 model:
   _target_: watchmal.model.resnet.resnet18
-  num_input_channels: 3
-  num_output_channels: 1
+  num_input_channels: 2
+  num_output_channels: 3
   stride: 1
   kernelSize: 1
   dropout_p: 0.
   conv_pad_mode: 'circular'
 engine:
   _target_: watchmal.engine.regression.RegressionEngine
-  truth_key: 'momenta'
+  truth_key: 'positions'
 tasks:
   train:
     epochs: 50
-    val_interval: 10
+    val_interval: 100
     num_val_batches: 10
     checkpointing: false
     loss:
-      _target_: torch.nn.HuberLoss
+      _target_: watchmal.utils.custom_loss.OutsidePenaltyHuberLoss
       delta: 0.1
+      penalty_weight_3rd: 0.5
+      penalty_weight_radius: 0.5
+      #_target_: torch.nn.HuberLoss
     data_loaders:
       train:
         split_key: train_idxs

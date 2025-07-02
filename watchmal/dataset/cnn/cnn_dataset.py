@@ -213,12 +213,13 @@ class CNNDataset(H5Dataset):
                 data_dict = t(data_dict)
         if 0:
             du.save_fig(data_dict["data"][1],True, counter = self.counter)
-        #processed_data = self.double_cover(data_dict["data"])
+        processed_data = self.double_cover(data_dict["data"])
 
         data_dict["data"] = processed_data
         if self.counter <= 10:
+            pass
         #     du.save_fig_dead(processed_data[0], True,  None, None, y_label='PMT Time', counter=self.counter, output_path=f'/data/thoriba/t2k/plots/dead_test/time_CNN/', dead_pmt_percent=-1)
-            du.save_fig_dead(data_dict["data"][1], True,  None, None, y_label='PMT Charge', counter=self.counter, output_path=f'/home/fcormier/t2k/ml/t2k_ml_training/plots/charge_CNN_decayE/', dead_pmt_percent=-1)
+        #du.save_fig_dead(data_dict["data"][1], True,  None, None, y_label='PMT Charge', counter=self.counter, output_path=f'/home/fcormier/t2k/ml/t2k_ml_training/plots/charge_CNN_decayE/', dead_pmt_percent=-1)
         #     du.save_fig_dead(processed_data[2], True,  None, None, y_label='PMT Dead (1)', counter=self.counter, output_path=f'/data/thoriba/t2k/plots/dead_test/dead_mask_withoutdead_CNN/', dead_pmt_percent=-1)
         #processed_data = du.apply_random_transformations(self.transforms, processed_data, counter = self.counter)
 
