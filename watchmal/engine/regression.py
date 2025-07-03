@@ -7,7 +7,7 @@ import analysis.utils.math as math
 
 class RegressionEngine(ReconstructionEngine):
     """Engine for performing training or evaluation for a regression network."""
-    def __init__(self, truth_key, model, rank, gpu, dump_path, output_center=0, output_scale=1, eval_directory='/'):
+    def __init__(self, truth_key, model, rank, gpu, dump_path, output_center=0, output_scale=1, eval_directory='/', truth_key_size=[1]):
         """
         Parameters
         ==========
@@ -27,7 +27,7 @@ class RegressionEngine(ReconstructionEngine):
             Value to divide target values by
         """
         # create the directory for saving the log and dump files
-        super().__init__(truth_key, model, rank, gpu, dump_path)
+        super().__init__(truth_key, model, rank, gpu, dump_path, truth_key_size=truth_key_size)
         self.output_center = output_center
         self.output_scale = output_scale
         self.eval_directory=eval_directory
@@ -60,7 +60,10 @@ class RegressionEngine(ReconstructionEngine):
             if False:
                 print(f'center: {self.output_center}, scale: {self.output_scale}')
                 print(f'Loss: {self.loss}, pred: {torch.mean(torch.abs(scaled_model_out),dim=0)}, target: {torch.mean(torch.abs(scaled_target), dim=0)}, train: {train}')
-            outputs = {"predicted_"+self.truth_key: model_out}
+            if self.multi_key:
+                outputs = {"predicted_all": model_out}
+            else:
+                outputs = {"predicted_"+self.truth_key: model_out}
             if False and (self.dir is not None and train is False):
                 (numerical_bot_quantile, numerical_top_quantile) = torch.quantile(longitudinal_component_pred, torch.tensor([0.159,0.841]).to(self.device))
                 numerical_median = torch.median(longitudinal_component_pred)

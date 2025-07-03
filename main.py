@@ -45,7 +45,7 @@ def main(config):
         if 'MASTER_PORT' in config:
             master_port = config.MASTER_PORT
         else:
-            master_port = 12355
+            master_port = 12360
             
         # Automatically select port based on base gpu
         master_port += config.gpu_list[0]

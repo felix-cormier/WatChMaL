@@ -26,7 +26,7 @@ log = logging.getLogger(__name__)
 
 
 class ReconstructionEngine(ABC):
-    def __init__(self, truth_key, model, rank, gpu, dump_path, eval_directory=''):
+    def __init__(self, truth_key, model, rank, gpu, dump_path, eval_directory='', truth_key_size=[1]):
         """
         Parameters
         ==========
@@ -51,6 +51,12 @@ class ReconstructionEngine(ABC):
         self.model = model
         self.device = torch.device(gpu)
         self.truth_key = truth_key
+        self.multi_key = False
+        self.truth_key_size = truth_key_size
+        print(f"length of truth key: {len(self.truth_key)}")
+        if len(self.truth_key) > 1 and len(self.truth_key) < 4 or len(truth_key_size) > 1:
+            self.multi_key = True
+
         self.eval_directory=eval_directory
         self.dir = None
 
@@ -224,7 +230,11 @@ class ReconstructionEngine(ABC):
                 #train_loader.dataset.set_dead_pmts(self.iteration)
                 train_data['iteration'] = torch.ones(train_data['iteration'].size())*self.iteration
                 self.data = train_data['data'].to(self.device)
-                self.target = train_data[self.truth_key].to(self.device)
+                if self.multi_key:
+                    temp_target = np.concatenate([train_data[t].numpy() for t in self.truth_key], axis=1)
+                    self.target = torch.tensor(temp_target).to(self.device)
+                else:
+                    self.target = train_data[self.truth_key].to(self.device)
                 # Call forward: make a prediction & measure the average error using data = self.data
                 outputs, metrics = self.forward(True)
                 metrics = {k: v.item() for k, v in metrics.items()}
@@ -291,7 +301,11 @@ class ReconstructionEngine(ABC):
             # extract the event data and target from the input data dict
             val_data['iteration'] = torch.ones(val_data['iteration'].size())*self.iteration
             self.data = val_data['data'].to(self.device)
-            self.target = val_data[self.truth_key].to(self.device)
+            if self.multi_key:
+                temp_target = np.concatenate([val_data[t].numpy() for t in self.truth_key], axis=1)
+                self.target = torch.tensor(temp_target).to(self.device)
+            else:
+                self.target = val_data[self.truth_key].to(self.device)
             self.dir = val_data["directions"].to(self.device) 
             #print(torch.mean(torch.abs(self.target),dim=0))
             # evaluate the network

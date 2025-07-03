@@ -15,15 +15,21 @@ data:
 model:
   _target_: watchmal.model.resnet.resnet18
   num_input_channels: 2
-  num_output_channels: 3
+  num_output_channels: 7
   stride: 1
   kernelSize: 1
   dropout_p: 0.
   conv_pad_mode: 'circular'
 engine:
   _target_: watchmal.engine.regression.RegressionEngine
-  truth_key: 'positions'
+  truth_key: 
+    - 'positions'
+    - 'directions'
+    - 'momenta'
+  truth_key_size: [3,3,1]
 tasks:
+  restore_best_state:
+    name: RegressionEngine_ResNet
   train:
     epochs: 50
     val_interval: 100
@@ -38,7 +44,7 @@ tasks:
     data_loaders:
       train:
         split_key: train_idxs
-        batch_size: 50
+        batch_size: 150
         num_workers: 2
         sampler:
           _target_: torch.utils.data.sampler.SubsetRandomSampler
@@ -64,9 +70,9 @@ tasks:
         sampler:
           _target_: torch.utils.data.sampler.SubsetRandomSampler
 gpu_list: 
-- 4
-- 5
-- 6
-- 7
+- 0
+- 1
+- 2
+- 3
 seed: null
 dump_path: ./outputs/
