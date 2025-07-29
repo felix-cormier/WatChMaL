@@ -1040,4 +1040,5 @@ class CNNDatasetScale(CNNDatasetDeadPMT):
         
         #print("Double Cover")
         processed_data = self.double_cover(data_dict["data"])
+        data_dict["data"] = processed_data
         return data_dict
