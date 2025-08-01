@@ -14,21 +14,23 @@ class OutsidePenaltyHuberLoss(nn.Module):
         # Compute the base Huber loss
         base_loss = self.huber_loss(input, target)
 
-        # Penalty for 3rd element (index 2) exceeding abs(1810)
+        # Penalty for |input[:, 2]| > 1810 (quadratic)
         third_element = input[:, 2]
-        penalty_3rd = torch.abs(torch.abs(third_element) - 1810)
-        penalty_3rd = penalty_3rd * (torch.abs(third_element) > 1810)
+        excess_3rd = torch.abs(third_element) - 1810
+        penalty_3rd = (excess_3rd.clamp(min=0))**2  # square the positive excess
 
-        # Penalty for radius formed by 0th and 1st elements exceeding 1690
+        # Penalty for sqrt(x^2 + y^2) > 1690 (quadratic)
         radius = torch.sqrt(input[:, 0]**2 + input[:, 1]**2)
-        penalty_radius = torch.abs(radius - 1690)
-        penalty_radius = penalty_radius * (radius > 1690)
+        excess_radius = radius - 1690
+        penalty_radius = (excess_radius.clamp(min=0))**2  # square the positive excess
 
-        # Weighted average penalties
+        # Mean penalties
         penalty_term_3rd = self.penalty_weight_3rd * penalty_3rd.mean()
         penalty_term_radius = self.penalty_weight_radius * penalty_radius.mean()
-        # Total loss
+
         total_loss = base_loss + penalty_term_3rd + penalty_term_radius
         if penalty_term_3rd>0. or penalty_term_radius > 0.:
+            print(f"excess 3rd: {penalty_3rd}, mask radius: {torch.abs(third_element) > 1810}")
+            print(f"excess radius: {penalty_radius}, mask 3rd: {radius > 1690}")
             print(f"total loss: {total_loss}, base_loss: {base_loss}, penalty z: {penalty_term_3rd}, penalty r: {penalty_term_radius}")
         return total_loss

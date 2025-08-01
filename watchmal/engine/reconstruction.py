@@ -131,6 +131,7 @@ class ReconstructionEngine(ABC):
         """
         global_output_dict = {}
         for name, tensor in output_dict.items():
+            print(f"NAME: {name}")
             if self.is_distributed:
                 if self.rank == 0:
                     tensor_list = [torch.zeros_like(tensor, device=self.device) for _ in range(self.n_gpus)]
@@ -350,13 +351,17 @@ class ReconstructionEngine(ABC):
             for self.step, eval_data in enumerate(self.data_loaders["test"]):
                 # load data
                 self.data = eval_data['data'].to(self.device)
-                self.target = eval_data[self.truth_key].to(self.device)
+                if self.multi_key:
+                    temp_target = np.concatenate([eval_data[t].numpy().astype(np.float32) for t in self.truth_key], axis=1)
+                    self.target = torch.tensor(temp_target).to(self.device)
+                else:
+                    self.target = eval_data[self.truth_key].to(self.device)
                 # Run the forward procedure and output the result
                 outputs, metrics = self.forward(train=False)
                 # Add the local result to the final result
                 if self.step == 0:
                     indices = eval_data['indices']
-                    positions = eval_data['positions']
+                    #positions = eval_data['positions']
                     event_ids = eval_data['event_ids']
                     root_files = eval_data['root_files']
                     labels = eval_data['labels']
@@ -365,7 +370,7 @@ class ReconstructionEngine(ABC):
                     eval_metrics = metrics
                 else:
                     indices = torch.cat((indices, eval_data['indices']))
-                    positions = torch.cat((positions, eval_data['positions']))
+                    #positions = torch.cat((positions, eval_data['positions']))
                     event_ids = torch.cat((event_ids, eval_data['event_ids']))
                     root_files = torch.cat((root_files, eval_data['root_files']))
                     labels = torch.cat((labels, eval_data['labels']))
@@ -379,18 +384,28 @@ class ReconstructionEngine(ABC):
                     previous_step_time = step_time
                     step_time = datetime.now()
                     average_step_time = (step_time - previous_step_time)/report_interval
-                    print(f"Step {self.step}/{steps_per_epoch}"
+                    print(f"rank: {self.rank}, Step {self.step}/{steps_per_epoch}"
                           f" Evaluation {', '.join(f'{k}: {v:.5g}' for k, v in metrics.items())},"
                           f" Step time {average_step_time},"
-                          f" Total time {step_time-start_time}")
+                          f" Total time {step_time-start_time},"
+                          f"labels: {np.unique(eval_data['labels'], return_counts=True)}")
         for k in eval_metrics.keys():
             eval_metrics[k] /= self.step+1
         eval_outputs["indices"] = indices.to(self.device)
-        eval_outputs["positions"] = positions.to(self.device)
+        #eval_outputs["positions"] = positions.to(self.device)
         eval_outputs["event_ids"] = event_ids.to(self.device)
         eval_outputs["root_files"] = root_files.to(self.device)
         eval_outputs["labels"] = labels.to(self.device)
-        eval_outputs[self.truth_key] = targets
+        if self.multi_key:
+            print("MultiKey")
+            base=0
+            for i, key in enumerate(self.truth_key):
+                #print(f"truth key: {key}, base: {base}, size: {self.truth_key_size[i]}, model out: {model_out[:,base:base+self.truth_key_size[i]]}")
+                eval_outputs[str(key)] =  targets[:,base:base+self.truth_key_size[i]]
+                print(targets[:,base:base+self.truth_key_size[i]])
+                base = base+self.truth_key_size[i]
+        else:
+            eval_outputs[self.truth_key]= targets
         # Gather results from all processes
         eval_metrics = self.get_synchronized_metrics(eval_metrics)
         eval_outputs = self.get_synchronized_outputs(eval_outputs)
@@ -403,7 +418,7 @@ class ReconstructionEngine(ABC):
                 except FileExistsError as error:
                     print("Directory " + str(self.dump_path + '/' + self.eval_directory +'/') +" already exists")
             for k, v in eval_outputs.items():
-                print(f"Saving eval .npy files to {self.dump_path + '/' + self.eval_directory +'/'}")
+                print(f"Saving eval {k}.npy files to {self.dump_path + '/' + self.eval_directory +'/'}")
                 np.save(self.dump_path + '/' + self.eval_directory +'/' + k + ".npy", v)
             # Compute overall evaluation metrics
             for k, v in eval_metrics.items():

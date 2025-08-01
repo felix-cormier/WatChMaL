@@ -61,7 +61,14 @@ class RegressionEngine(ReconstructionEngine):
                 print(f'center: {self.output_center}, scale: {self.output_scale}')
                 print(f'Loss: {self.loss}, pred: {torch.mean(torch.abs(scaled_model_out),dim=0)}, target: {torch.mean(torch.abs(scaled_target), dim=0)}, train: {train}')
             if self.multi_key:
-                outputs = {"predicted_all": model_out}
+                base=0
+                for i, key in enumerate(self.truth_key):
+                    #print(f"truth key: {key}, base: {base}, size: {self.truth_key_size[i]}, model out: {model_out[:,base:base+self.truth_key_size[i]]}")
+                    if i==0:
+                        outputs = {"predicted_"+str(key): model_out[:,base:base+self.truth_key_size[i]]}
+                    else:
+                        outputs["predicted_"+str(key)] = model_out[:,base:base+self.truth_key_size[i]]
+                    base = base+self.truth_key_size[i]
             else:
                 outputs = {"predicted_"+self.truth_key: model_out}
             if False and (self.dir is not None and train is False):
