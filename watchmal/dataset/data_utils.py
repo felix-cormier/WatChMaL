@@ -179,6 +179,28 @@ def save_fig(data, isPost, displacement=0, counter=0, output_path=None):
     plt.clf()
     print("3")
 
+def relativeTimes(event_hit_times):
+    # Define bin width
+    bin_width = 5
+
+    # Compute bin edges
+    min_val = np.min(event_hit_times)
+    max_val = np.max(event_hit_times)
+    bins = np.arange(min_val, max_val + bin_width, bin_width)
+
+    # Histogram
+    counts, bin_edges = np.histogram(event_hit_times, bins=bins)
+
+    # Index of the most populated bin
+    max_bin_index = np.argmax(counts)
+
+    # Get center of that bin
+    most_common_bin_center = (bin_edges[max_bin_index] + bin_edges[max_bin_index + 1]) / 2
+
+    # Subtract that from each event_hit_times point
+    differences = event_hit_times - most_common_bin_center
+    return differences
+
 def save_fig_dead(data, isPost, dead_pmts, pmt_positions, y_label='PMT Charge',
                    displacement=0, counter=0, output_path='/data/thoriba/t2k/plots/charge_plot/CNN_dead_default/', dead_pmt_percent=100,
                    note=None, title=None):

@@ -5,9 +5,10 @@ data:
     _target_: watchmal.dataset.cnn.cnn_dataset.CNNDatasetDeadPMT
     pmt_positions_file: /fast_scratch/WatChMaL/data/T2K/image_files/skdetsim_imagefile.npy
     use_positions: False
+    use_relativeTimes: True
     geometry_file: /home/fcormier/t2k/ml/training/t2k_ml_training/data/geofile_skdetsim.npz
     channel_scaling:
-      time: [400, 1000]
+      time: [0, 1000]
     #change_dead_pmts: True
     #dead_pmt_var: 0.01
     #dead_pmt_rate: 0.01
