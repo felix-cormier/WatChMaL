@@ -16,7 +16,6 @@ import random
 # WatChMaL imports
 from watchmal.dataset.samplers import DistributedSamplerWrapper
 
-import torchvision
 
 # Implementation of matplotlib function
 import matplotlib.pyplot as plt
@@ -200,6 +199,21 @@ def relativeTimes(event_hit_times):
     # Subtract that from each event_hit_times point
     differences = event_hit_times - most_common_bin_center
     return differences
+
+def triggerTimes(event_hit_times):
+
+    sorted_event_hit_times = np.sort(event_hit_times)
+
+    if len(event_hit_times) < 33:
+            return event_hit_times - 1000
+    
+    dt = sorted_event_hit_times[34:] - sorted_event_hit_times[:-34]
+    idx = np.flatnonzero(dt <= 200)
+    if len(idx):
+        trigger_time = sorted_event_hit_times[idx[0]+33]
+        return event_hit_times - trigger_time
+
+
 
 def save_fig_dead(data, isPost, dead_pmts, pmt_positions, y_label='PMT Charge',
                    displacement=0, counter=0, output_path='/data/thoriba/t2k/plots/charge_plot/CNN_dead_default/', dead_pmt_percent=100,

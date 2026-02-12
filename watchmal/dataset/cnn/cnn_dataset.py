@@ -7,7 +7,7 @@ Modified from mPMT dataset for use with single PMTs
 import os
 from torch import from_numpy, Tensor, roll, flip
 import torch
-import torchvision
+#import torchvision
 
 # generic imports
 import numpy as np
@@ -39,7 +39,7 @@ class CNNDataset(H5Dataset):
     event-display-like format.
     """
 
-    def __init__(self, h5file, pmt_positions_file, use_times=True, use_charges=True, use_positions=False, transforms=None, one_indexed=True, channel_scaling=None, geometry_file=None, decayE=False, use_relativeTimes=False):
+    def __init__(self, h5file, pmt_positions_file, use_times=True, use_charges=True, use_positions=False, transforms=None, one_indexed=True, channel_scaling=None, geometry_file=None, decayE=False, use_relativeTimes=False, use_triggerTimes=False):
         """
         Constructs a dataset for CNN data. Event hit data is read in from the HDF5 file and the PMT charge and/or time
         data is formatted into an event-display-like image for input to a CNN. Each pixel of the image corresponds to
@@ -157,6 +157,8 @@ class CNNDataset(H5Dataset):
         if self.use_times and self.use_charges:
             if self.use_relativeTimes:
                 hit_times = du.relativeTimes(hit_times)
+            if self.use_triggerTimes:
+                hit_times = du.triggerTimes(hit_times)
             data[0, hit_rows, hit_cols] = hit_times
             data[1, hit_rows, hit_cols] = hit_charges
             if self.use_positions:
@@ -169,6 +171,8 @@ class CNNDataset(H5Dataset):
                 print(f"Original hit times: {hit_times}")
                 hit_times = du.relativeTimes(hit_times)
                 print(f"After hit times: {hit_times}")
+            if self.use_triggerTimes:
+                hit_times = du.triggerTimes(hit_times)
             data[0, hit_rows, hit_cols] = hit_times
             if self.use_positions:
                 data[1, hit_rows, hit_cols] = hit_positions[:,0]
@@ -189,6 +193,8 @@ class CNNDataset(H5Dataset):
         data_dict = super().__getitem__(item)
         if self.use_relativeTimes:
             self.event_hit_times = du.relativeTimes(self.event_hit_times)
+        if self.use_triggerTimes:
+            self.event_hit_times = du.triggerTimes(self.event_hit_times)
         if self.use_positions:
             self.hit_positions = self.geo_positions[self.event_hit_pmts, :]
             hit_data = {"charge": self.event_hit_charges, "time": self.event_hit_times, "position": self.hit_positions}
@@ -512,7 +518,7 @@ class CNNDatasetDeadPMT(CNNDataset):
     """
 
     def __init__(self, h5file, pmt_positions_file, use_times=True, use_charges=True, use_positions=False, transforms=None, one_indexed=True, channel_scaling=None, geometry_file=None,
-                 dead_pmt_rate=None, dead_pmt_seed=None, dead_pmts_file=None, use_dead_pmt_mask=False, use_hit_mask=False, change_dead_pmts=False, dead_pmt_var=None, decayE=False, use_relativeTimes=False):
+                 dead_pmt_rate=None, dead_pmt_seed=None, dead_pmts_file=None, use_dead_pmt_mask=False, use_hit_mask=False, change_dead_pmts=False, dead_pmt_var=None, decayE=False, use_relativeTimes=False, use_triggerTimes=False):
         """
         Constructs a dataset for CNN data. Event hit data is read in from the HDF5 file and the PMT charge and/or time
         data is formatted into an event-display-like image for input to a CNN. Each pixel of the image corresponds to
@@ -551,7 +557,7 @@ class CNNDatasetDeadPMT(CNNDataset):
         dead_pmt_var: bool
             Variation in percentage of dead PMTs. None by default.
         """
-        super().__init__(h5file, pmt_positions_file, use_times=use_times, use_charges=use_charges, use_positions=use_positions, transforms=transforms, one_indexed=one_indexed, channel_scaling=channel_scaling, geometry_file=geometry_file, decayE=decayE, use_relativeTimes=use_relativeTimes)
+        super().__init__(h5file, pmt_positions_file, use_times=use_times, use_charges=use_charges, use_positions=use_positions, transforms=transforms, one_indexed=one_indexed, channel_scaling=channel_scaling, geometry_file=geometry_file, decayE=decayE, use_relativeTimes=use_relativeTimes, use_triggerTimes=use_triggerTimes)
         self.use_dead_pmt_mask = use_dead_pmt_mask
         self.dead_pmt_rate = dead_pmt_rate
         self.dead_pmt_seed = dead_pmt_seed if dead_pmt_seed is not None else 42
@@ -562,6 +568,7 @@ class CNNDatasetDeadPMT(CNNDataset):
         self.batch_size=-1
         self.decayE = decayE
         self.use_relativeTimes=use_relativeTimes
+        self.use_triggerTimes=use_triggerTimes
 
         self.use_hit_mask = use_hit_mask
 
