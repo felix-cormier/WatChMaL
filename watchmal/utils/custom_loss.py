@@ -34,3 +34,56 @@ class OutsidePenaltyHuberLoss(nn.Module):
             print(f"excess radius: {penalty_radius}, mask 3rd: {radius > 1690}")
             print(f"total loss: {total_loss}, base_loss: {base_loss}, penalty z: {penalty_term_3rd}, penalty r: {penalty_term_radius}")
         return total_loss
+
+
+class RelativeHuberLoss(nn.Module):
+    def __init__(self, delta=1.0, epsilon=1e-8):
+        super().__init__()
+        self.delta = delta
+        self.epsilon = epsilon
+
+    def forward(self, input, target):
+        relative_error = (input - target) / (torch.abs(target) + self.epsilon)
+        abs_err = torch.abs(relative_error)
+        loss = torch.where(
+            abs_err <= self.delta,
+            0.5 * relative_error ** 2,
+            self.delta * (abs_err - 0.5 * self.delta)
+        )
+        return loss.mean()
+
+
+class ThresholdScaledHuberLoss(nn.Module):
+    def __init__(self, delta=0.2, threshold=100.0, k=5.0):
+        """
+        Huber loss that scales by k for samples whose energy (or target, if
+        energy is not provided) falls below a fixed threshold value.
+
+        Args:
+            delta:     Huber loss transition point.
+            threshold: Fixed value below which the loss is scaled. Compared
+                       against energy when provided, otherwise against target.
+            k:         Scale factor applied to losses where the value < threshold.
+        """
+        super().__init__()
+        self.delta = delta
+        self.threshold = threshold
+        self.k = k
+
+    def forward(self, input, target, energy=None):
+        abs_err = torch.abs(input - target)
+        loss = torch.where(
+            abs_err <= self.delta,
+            0.5 * (input - target) ** 2,
+            self.delta * (abs_err - 0.5 * self.delta)
+        )
+        # Use energy for threshold comparison when provided, otherwise fall back to target
+        if energy is not None:
+            reference = energy.squeeze(-1) if energy.dim() > 1 and energy.shape[-1] == 1 else energy
+            # broadcast to match loss shape if needed
+            if reference.shape != loss.shape:
+                reference = reference.unsqueeze(-1).expand_as(loss)
+        else:
+            reference = target
+        scale = torch.where(reference < self.threshold, torch.full_like(loss, self.k), torch.ones_like(loss))
+        return (scale * loss).mean()

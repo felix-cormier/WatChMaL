@@ -74,6 +74,7 @@ class ReconstructionEngine(ABC):
         # define the placeholder attributes
         self.data = None
         self.target = None
+        self.energy = None
         self.loss = None
 
         # logging attributes
@@ -231,6 +232,7 @@ class ReconstructionEngine(ABC):
                 #train_loader.dataset.set_dead_pmts(self.iteration)
                 train_data['iteration'] = torch.ones(train_data['iteration'].size())*self.iteration
                 self.data = train_data['data'].to(self.device)
+                self.energy = train_data['energies'].to(self.device)
                 if self.multi_key:
                     temp_target = np.concatenate([train_data[t].numpy() for t in self.truth_key], axis=1)
                     self.target = torch.tensor(temp_target).to(self.device)
@@ -302,6 +304,7 @@ class ReconstructionEngine(ABC):
             # extract the event data and target from the input data dict
             val_data['iteration'] = torch.ones(val_data['iteration'].size())*self.iteration
             self.data = val_data['data'].to(self.device)
+            self.energy = val_data['energies'].to(self.device)
             if self.multi_key:
                 temp_target = np.concatenate([val_data[t].numpy() for t in self.truth_key], axis=1)
                 self.target = torch.tensor(temp_target).to(self.device)
@@ -351,6 +354,7 @@ class ReconstructionEngine(ABC):
             for self.step, eval_data in enumerate(self.data_loaders["test"]):
                 # load data
                 self.data = eval_data['data'].to(self.device)
+                self.energy = eval_data['energies'].to(self.device)
                 if self.multi_key:
                     temp_target = np.concatenate([eval_data[t].numpy().astype(np.float32) for t in self.truth_key], axis=1)
                     self.target = torch.tensor(temp_target).to(self.device)

@@ -4,7 +4,7 @@ Utility functions for plotting
 
 import matplotlib
 from matplotlib import pyplot as plt
-import WatChMaL.analysis.utils.binning as bins
+import analysis.utils.binning as bins
 
 
 def combine_legends(ax):

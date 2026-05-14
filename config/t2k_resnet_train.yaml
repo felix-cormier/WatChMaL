@@ -1,5 +1,5 @@
 data:
-  split_path: '/scratch/fcormier/t2k/ml/output_skdetsim/jan23_electrons_forRegression_5M_1/train_val_test_gt200Hits_FC_nFolds20_fold0.npz' 
+  split_path: '/scratch/fcormier/t2k/ml/output_skdetsim/apr29_2026_muons_plusMay29_2025_muons_0to150MeV_additional_combine_1//train_val_test_gt100Hits_fcM50_2000MeVCut_nFolds60_fold0.npz' 
   dataset:
     h5file: '$SLURM_TMPDIR/digi_combine.hy'
     _target_: watchmal.dataset.cnn.cnn_dataset.CNNDatasetDeadPMT
@@ -11,7 +11,7 @@ data:
     channel_scaling:
       #time: [400, 1000]
       #Shift
-      time: [0, 100]
+      time: [-600, 1000]
       #Relative
       #time: [0, 100]
     #change_dead_pmts: True
@@ -23,7 +23,7 @@ model:
   num_input_channels: 2
   num_output_channels: 3
   stride: 1
-  kernelSize: 1
+  kernelSize: 3
   dropout_p: 0.
   conv_pad_mode: 'circular'
 engine:
@@ -33,26 +33,28 @@ engine:
 tasks:
   train:
     epochs: 50
-    val_interval: 100
-    num_val_batches: 40
+    val_interval: 1000
+    num_val_batches: 50
     checkpointing: false
     loss:
-      #_target_: watchmal.utils.custom_loss.OutsidePenaltyHuberLoss
+      #_target_: watchmal.utils.custom_loss.ThresholdScaledHuberLoss
       _target_: torch.nn.HuberLoss
       delta: 0.1
+      #threshold: 260.0
+      #k: 5.0
       #penalty_weight_3rd: 0.1
       #penalty_weight_radius: 0.1
     data_loaders:
       train:
         split_key: train_idxs
-        batch_size: 200
-        num_workers: 4
+        batch_size: 320
+        num_workers: 8
         sampler:
           _target_: torch.utils.data.sampler.SubsetRandomSampler
       validation:
         split_key: val_idxs
-        batch_size: 500
-        num_workers: 2
+        batch_size: 1000
+        num_workers: 4
         sampler:
           _target_: torch.utils.data.sampler.SubsetRandomSampler
     optimizers:

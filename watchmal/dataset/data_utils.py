@@ -212,6 +212,8 @@ def triggerTimes(event_hit_times):
     if len(idx):
         trigger_time = sorted_event_hit_times[idx[0]+33]
         return event_hit_times - trigger_time
+    else:
+            return event_hit_times - 1000
 
 
 

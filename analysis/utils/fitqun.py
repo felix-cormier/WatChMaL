@@ -4,9 +4,9 @@ import hashlib
 
 import matplotlib
 from matplotlib import pyplot as plt
-import WatChMaL.analysis.utils.binning as bins
+import analysis.utils.binning as bins
 
-import WatChMaL.analysis.utils.math as math
+import analysis.utils.math as math
 from analyze_output.utils.math import get_cherenkov_threshold
 
 def generic_histogram(x, x_name, output_path, output_name, y_name = None, label=None, range=None, bins=None, in_chain=False, doNorm=False):

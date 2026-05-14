@@ -1,4 +1,5 @@
 import torch
+import inspect
 
 from watchmal.engine.reconstruction import ReconstructionEngine
 
@@ -53,7 +54,10 @@ class RegressionEngine(ReconstructionEngine):
             #Force float type
             scaled_target = self.scale_values(self.target).float()
             scaled_model_out = self.scale_values(model_out).float()
-            self.loss = self.criterion(scaled_model_out, scaled_target)
+            if 'energy' in inspect.signature(self.criterion.forward).parameters:
+                self.loss = self.criterion(scaled_model_out, scaled_target, energy=self.energy)
+            else:
+                self.loss = self.criterion(scaled_model_out, scaled_target)
             if self.dir is not None and train is False:
                 longitudinal_component_pred = math.decompose_along_direction_pytorch(scaled_model_out[:,0:3]-scaled_target[:,0:3], self.dir)
                 #longitudinal_component_true = math.decompose_along_direction_pytorch(scaled_target[:,0:3], self.dir)
