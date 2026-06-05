@@ -1,5 +1,5 @@
 data:
-  split_path: '/scratch/fcormier/t2k/ml/output_skdetsim/mar8_eMuPiPlus_full_combine_1/train_val_test_gt200Hits_fcM50_2000MeVCut_nFolds40_fold0.npz' 
+  split_path: '/fast_scratch_4/WatChMaL/t2k/ml/output_skdetsim/jun4_eMuPiPlus_full_combine_bugFix_1/train_val_test_gt100Hits_fcM50_2000MeVCut_nFolds60_fold0.npz' 
   dataset:
     h5file: '$SLURM_TMPDIR/multi_combine.hy'
     _target_: watchmal.dataset.cnn.cnn_dataset.CNNDatasetDeadPMT
@@ -20,29 +20,32 @@ data:
     #dead_pmt_rate: 0.01
     #use_hit_mask: True
 model:
-  _target_: watchmal.model.resnet.resnet18
+  _target_: watchmal.model.resnet.resnet50
   num_input_channels: 2
   num_output_channels: 3
   stride: 1
   kernelSize: 3
   dropout_p: 0.2
+  conv_pad_mode: 'circular'
 engine:
   _target_: watchmal.engine.classification.ClassifierEngine
   truth_key: 'labels'
   label_set: [0,1,2]
 tasks:
+  restore_best_state:
+    name: ClassifierEngine_ResNet
   train:
     epochs: 50
-    val_interval: 200
-    num_val_batches: 10
+    val_interval: 1000
+    num_val_batches: 50
     checkpointing: false
     loss:
       _target_: torch.nn.CrossEntropyLoss
     data_loaders:
       train:
         split_key: train_idxs
-        batch_size: 300
-        num_workers: 8
+        batch_size: 280
+        num_workers: 4
         sampler:
           _target_: torch.utils.data.sampler.SubsetRandomSampler
       validation:
@@ -71,5 +74,6 @@ gpu_list:
 - 1
 - 2
 - 3
+- 4
 seed: null
 dump_path: ./outputs/

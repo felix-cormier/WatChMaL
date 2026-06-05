@@ -5,7 +5,7 @@ data:
   #split_path: '/fast_scratch_2/fcormier/sk/data/raw/train_val_test_stopMu_1000TC15000.npz' 
   #split_path: '/data/fcormier/sk/stopMu/fullSample/train_val_test_stopMu_1000TC15000.npz' 
   #split_path: '/fast_scratch_2/fcormier/t2k/ml/data/oct24_eMuPiPlus_fq_1/testOnly_indices.npz'
-  split_path: '/fast_scratch_2/fcormier/t2k/ml/decayE/may28_2025_muons_nqiskz_testSet_1//testOnly_indices.npz'
+  split_path: '/home/fcormier/t2k/ml/training/t2k_ml_training/data/25989283_output.npz'
   dataset:
     #h5file: '/fast_scratch/fcormier//t2k/ml/skdetsim/oct20_eMuPosPion_0dwallCut_flat_1/combine_combine.hy'
     #h5file: '/fast_scratch_2/fcormier/sk/data/raw//digi_combine.hy'
@@ -13,46 +13,51 @@ data:
     #h5file: '/fast_scratch_2/fcormier/t2k/ml/data/oct24_eMuPiPlus_fq_1/multi_combine.hy'
     #h5file: '/data/fcormier/sk/stopMu/fullSample//digi_combine.hy'
     #h5file: '/fast_scratch_2/fcormier/sk/data/raw//digi_combine.hy'
-    h5file: '/fast_scratch_2/fcormier/t2k/ml/decayE/may28_2025_muons_nqiskz_testSet_1/digi_combine.hy'
+    h5file: '/fast_scratch_4/WatChMaL/t2k/output_skdetsim/mar6_2026_electrons_forInference_small_1/skdetsim_transform_25989283_digi.hy'
     _target_: watchmal.dataset.cnn.cnn_dataset.CNNDatasetDeadPMT
-    pmt_positions_file: /fast_scratch/WatChMaL/data/T2K/image_files/skdetsim_imagefile.npy
+    pmt_positions_file: /home/fcormier/t2k/ml/training/t2k_ml_training/data/skdetsim_imagefile.npy
+    use_positions: False
+    use_relativeTimes: False
+    use_triggerTimes: True
+    geometry_file: /home/fcormier/t2k/ml/training/t2k_ml_training/data/geofile_skdetsim.npz
     channel_scaling:
-      time: [400, 1000]
-    #dead_pmts_file: /data/fcormier/Public/dead_pmts.sk4.txt
-    decayE: False
+      #time: [400, 1000]
+      #Shift
+      #time: [0, 100]
+      time: [-600, 1000]
+      #Relative
+      #time: [0, 100]
+    #change_dead_pmts: True
+    #dead_pmt_var: 0.01
+    #dead_pmt_rate: 0.01
+    #use_hit_mask: True
 model:
   _target_: watchmal.model.resnet.resnet50
   num_input_channels: 2
   num_output_channels: 3
   stride: 1
-  kernelSize: 1
+  kernelSize: 3
   dropout_p: 0.
   conv_pad_mode: 'circular'
 engine:
   _target_: watchmal.engine.classification.ClassifierEngine
   truth_key: 'labels'
-  eval_directory: 'particleGun_decayE'
-  label_set:
-  - 0
-  - 1
-  - 2
+  label_set: [0,1,2]
 tasks:
   restore_best_state:
     name: ClassifierEngine_ResNet
   evaluate:
+    report_interval: 1
     loss:
       _target_: torch.nn.CrossEntropyLoss
     data_loaders:
       test:
         split_key: test_idxs
-        batch_size: 200
-        num_workers: 2
+        batch_size: 50
+        num_workers: 1
         sampler:
           _target_: watchmal.dataset.samplers.SubsetSequentialSampler
 gpu_list: 
-- 4
 - 5
-- 6
-- 7
 seed: null
 dump_path: ./outputs/

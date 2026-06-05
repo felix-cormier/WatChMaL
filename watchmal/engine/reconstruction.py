@@ -240,7 +240,7 @@ class ReconstructionEngine(ABC):
                     self.target = train_data[self.truth_key].to(self.device)
                 # Call forward: make a prediction & measure the average error using data = self.data
                 outputs, metrics = self.forward(True)
-                metrics = {k: v.item() for k, v in metrics.items()}
+                metrics = {k: v.detach().item() for k, v in metrics.items()}
                 # Call backward: back-propagate error and update weights using loss = self.loss
                 self.backward()
                 # update the epoch and iteration

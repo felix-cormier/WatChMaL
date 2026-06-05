@@ -1,5 +1,5 @@
 data:
-  split_path: '//fast_scratch_2/fcormier/t2k/ml/data/oct20_combine_flatE/train_val_test_nFolds3_fold0.npz' 
+  split_path: '/home/fcormier/t2k/ml/training/t2k_ml_training/data/25989283_output.npz'
   #PG Performance
   #split_path: '/fast_scratch_2/fcormier/t2k/ml/data/oct24_eMuPiPlus_fq_1/testOnly_indices.npz'
   #split_path: '/fast_scratch/fcormier//t2k/ml/training/resnet_nov7_eMuPosPions_0dwall_1M_flat_1/fq_test_idx.npz'
@@ -9,7 +9,7 @@ data:
   #split_path: '/fast_scratch_2/fcormier/t2k/ml/decayE/may28_2025_muons_nqiskz_testSet_1//testOnly_indices.npz'
   #split_path: '/fast_scratch_2/fcormier/sk/decayE/MC/testOnly_indices.npz'
   dataset:
-    h5file: '/fast_scratch_2/fcormier/t2k/ml/data/oct20_combine_flatE/combine_combine.hy'
+    h5file: '/fast_scratch_4/WatChMaL/t2k/output_skdetsim/mar6_2026_electrons_forInference_small_1/skdetsim_transform_25989283_digi.hy'
     #PG Performance
     #h5file: '/fast_scratch_2/fcormier/t2k/ml/data/oct24_eMuPiPlus_fq_1/multi_combine.hy'
     #h5file: '/fast_scratch/fcormier//t2k/ml/skdetsim/oct20_eMuPosPion_0dwallCut_flat_1/combine_combine.hy'
@@ -19,20 +19,28 @@ data:
     #h5file: '/fast_scratch_2/fcormier/t2k/ml/decayE/may28_2025_muons_nqiskz_testSet_1/digi_combine.hy'
     #h5file: '/fast_scratch_2/fcormier/sk/decayE/MC/digi_combine.hy'
     _target_: watchmal.dataset.cnn.cnn_dataset.CNNDatasetDeadPMT
-    pmt_positions_file: /fast_scratch/WatChMaL/data/T2K/image_files/skdetsim_imagefile.npy
+    pmt_positions_file: /home/fcormier/t2k/ml/training/t2k_ml_training/data/skdetsim_imagefile.npy
     use_positions: False
-    geometry_file: /home/fcormier/t2k/ml/t2k_ml_training/data/geofile_skdetsim.npz
+    use_relativeTimes: False
+    use_triggerTimes: True
+    geometry_file: /home/fcormier/t2k/ml/training/t2k_ml_training/data/geofile_skdetsim.npz
     channel_scaling:
-      time: [400, 1000]
-    decayE: False
-    #dead_pmts_file: /data/fcormier/Public/dead_pmts.sk4.txt
+      #time: [400, 1000]
+      #Shift
+      #time: [0, 100]
+      time: [-600, 1000]
+      #Relative
+      #time: [0, 100]
+    #change_dead_pmts: True
+    #dead_pmt_var: 0.01
+    #dead_pmt_rate: 0.01
     #use_hit_mask: True
 model:
   _target_: watchmal.model.resnet.resnet50
   num_input_channels: 2
   num_output_channels: 3
   stride: 1
-  kernelSize: 1
+  kernelSize: 3
   dropout_p: 0.
   conv_pad_mode: 'circular'
 engine:
@@ -43,7 +51,7 @@ tasks:
   restore_best_state:
     name: RegressionEngine_ResNet
   evaluate:
-    report_interval: 100
+    report_interval: 1
     loss:
       _target_: torch.nn.HuberLoss
       delta: 0.1
@@ -60,9 +68,6 @@ tasks:
           #_target_: torch.utils.data.sampler.SubsetRandomSampler
           _target_: watchmal.dataset.samplers.SubsetSequentialSampler
 gpu_list:
-  - 0
-  - 1
-  - 2
-  - 3
+  - 5
 seed: null
 dump_path: ./outputs/
