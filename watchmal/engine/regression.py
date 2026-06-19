@@ -5,6 +5,8 @@ from watchmal.engine.reconstruction import ReconstructionEngine
 
 import analysis.utils.math as math
 
+from torch.amp import autocast
+
 
 class RegressionEngine(ReconstructionEngine):
     """Engine for performing training or evaluation for a regression network."""
@@ -47,43 +49,54 @@ class RegressionEngine(ReconstructionEngine):
         dict
             Dictionary containing loss and predicted values
         """
+        print("0")
         with torch.set_grad_enabled(train):
-            # Move the data and the labels to the GPU (if using CPU this has no effect)
-            model_out = self.model(self.data).reshape(self.target.shape)
-            #model_out = self.model(self.data)
-            #Force float type
-            scaled_target = self.scale_values(self.target).float()
-            scaled_model_out = self.scale_values(model_out).float()
-            if 'energy' in inspect.signature(self.criterion.forward).parameters:
-                self.loss = self.criterion(scaled_model_out, scaled_target, energy=self.energy)
-            else:
-                self.loss = self.criterion(scaled_model_out, scaled_target)
-            if self.dir is not None and train is False:
-                longitudinal_component_pred = math.decompose_along_direction_pytorch(scaled_model_out[:,0:3]-scaled_target[:,0:3], self.dir)
-                #longitudinal_component_true = math.decompose_along_direction_pytorch(scaled_target[:,0:3], self.dir)
-            if False:
-                print(f'center: {self.output_center}, scale: {self.output_scale}')
-                print(f'Loss: {self.loss}, pred: {torch.mean(torch.abs(scaled_model_out),dim=0)}, target: {torch.mean(torch.abs(scaled_target), dim=0)}, train: {train}')
+            print("1")
+            # 1. Wrap operations in native bfloat16 autocast to save VRAM and boost throughput
+            with autocast(device_type='cuda', dtype=torch.bfloat16, enabled=True):
+                print("2")
+                model_out = self.model(self.data).reshape(self.target.shape)
+                print("3")
+                if self.rank == 0:
+                    print(f"GPU memory allocated: {torch.cuda.memory_allocated() / 1e9:.2f} GB")
+                    print(f"GPU memory reserved:  {torch.cuda.memory_reserved() / 1e9:.2f} GB")
+                print("4")
+                
+                scaled_target = self.scale_values(self.target)
+                scaled_model_out = self.scale_values(model_out)
+                
+                if 'energy' in inspect.signature(self.criterion.forward).parameters:
+                    self.loss = self.criterion(scaled_model_out, scaled_target, energy=self.energy)
+                else:
+                    self.loss = self.criterion(scaled_model_out, scaled_target)
+                
+                if self.dir is not None and train is False:
+                    longitudinal_component_pred = math.decompose_along_direction_pytorch(
+                        scaled_model_out[:, 0:3] - scaled_target[:, 0:3], self.dir
+                    )
+
+            # 2. Build outputs dictionary (detach to prevent graph trailing)
             if self.multi_key:
-                base=0
+                base = 0
+                outputs = {}
                 for i, key in enumerate(self.truth_key):
-                    #print(f"truth key: {key}, base: {base}, size: {self.truth_key_size[i]}, model out: {model_out[:,base:base+self.truth_key_size[i]]}")
-                    if i==0:
-                        outputs = {"predicted_"+str(key): model_out[:,base:base+self.truth_key_size[i]]}
-                    else:
-                        outputs["predicted_"+str(key)] = model_out[:,base:base+self.truth_key_size[i]]
-                    base = base+self.truth_key_size[i]
+                    outputs["predicted_" + str(key)] = model_out[:, base:base + self.truth_key_size[i]].detach()
+                    base = base + self.truth_key_size[i]
             else:
-                outputs = {"predicted_"+self.truth_key: model_out}
+                outputs = {"predicted_" + self.truth_key: model_out.detach()}
+            
+                        # 3. CRITICAL: Detach the loss tensor into a pure Python scalar (.item()) 
+            # This isolates metrics from the live VRAM computation graph.
             if False and (self.dir is not None and train is False):
-                (numerical_bot_quantile, numerical_top_quantile) = torch.quantile(longitudinal_component_pred, torch.tensor([0.159,0.841]).to(self.device))
+                (numerical_bot_quantile, numerical_top_quantile) = torch.quantile(
+                    longitudinal_component_pred, torch.tensor([0.159, 0.841]).to(self.device)
+                )
                 numerical_median = torch.median(longitudinal_component_pred)
-                #numerical_top_quantile = np.quantile(residuals_cut, 0.841)
-                quantile = (torch.abs((numerical_median-numerical_bot_quantile))+torch.abs((numerical_median-numerical_top_quantile)))/2
-                #print(f"pred: {scaled_model_out[:,0:3]}, true: {scaled_target[:,0:3]}, dir: {self.dir}, long pred: {longitudinal_component_pred}, long true: {longitudinal_component_true}")
-                metrics = {'loss': self.loss, 'long_res':quantile}
+                quantile = (torch.abs((numerical_median - numerical_bot_quantile)) + torch.abs((numerical_median - numerical_top_quantile))) / 2
+                metrics = {'loss': self.loss.item(), 'long_res': quantile.item()}
             else:
-                metrics = {'loss': self.loss}
+                metrics = {'loss': self.loss.item()} # 👈 Fixed leak (.item() removes the graph)
+
         return outputs, metrics
 
     def scale_values(self, data):

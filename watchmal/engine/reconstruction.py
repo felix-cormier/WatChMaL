@@ -71,6 +71,7 @@ class ReconstructionEngine(ABC):
 
         self.data_loaders = {}
 
+
         # define the placeholder attributes
         self.data = None
         self.target = None
@@ -86,6 +87,7 @@ class ReconstructionEngine(ABC):
         self.criterion = None
         self.optimizer = None
         self.scheduler = None
+        print(f"rank {self.rank} -> device {self.device}, model params: {sum(p.numel() for p in self.module.parameters())/1e6:.1f}M")
 
     def configure_loss(self, loss_config):
         self.criterion = instantiate(loss_config)
@@ -174,9 +176,17 @@ class ReconstructionEngine(ABC):
 
     def backward(self):
         """Backward pass using the loss computed for a mini-batch"""
-        self.optimizer.zero_grad()  # reset accumulated gradient
-        self.loss.backward()  # compute new gradient
-        self.optimizer.step()  # step params
+        self.optimizer.zero_grad()
+        self.loss.backward()
+        
+        # Optional but recommended gradient clipping
+        torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+        
+        self.optimizer.step()
+        
+        # Completely purge the reference from the engine instance
+        del self.loss
+        self.loss = None
 
     def train(self, epochs=0, val_interval=20, num_val_batches=4, checkpointing=False, save_interval=None):
         """
@@ -199,6 +209,8 @@ class ReconstructionEngine(ABC):
             log.info(f"Training {epochs} epochs with {num_val_batches}-batch validation each {val_interval} iterations")
         # set model to training mode
         self.model.train()
+        if self.rank == 0:
+            print(f"[train start] allocated: {torch.cuda.memory_allocated()/1e9:.2f} GB, reserved: {torch.cuda.memory_reserved()/1e9:.2f} GB")
         # initialize epoch and iteration counters
         self.epoch = 0
         self.iteration = 0
@@ -208,6 +220,8 @@ class ReconstructionEngine(ABC):
         # initialize the iterator over the validation set
         self.data_loaders["validation"].dataset.batch_size = self.data_loaders["validation"].batch_size
         val_iter = iter(self.data_loaders["validation"])
+        if self.rank == 0:
+            print(f"[after val_iter] allocated: {torch.cuda.memory_allocated()/1e9:.2f} GB, reserved: {torch.cuda.memory_reserved()/1e9:.2f} GB")
         # global training loop for multiple epochs
         start_time = datetime.now()
         step_time = start_time
@@ -239,7 +253,14 @@ class ReconstructionEngine(ABC):
                 else:
                     self.target = train_data[self.truth_key].to(self.device)
                 # Call forward: make a prediction & measure the average error using data = self.data
-                outputs, metrics = self.forward(True)
+                if self.step == 0:
+                    print(f"rank {self.rank}, device {self.device}, data shape: {self.data.shape}")
+                    print(f"rank {self.rank} [before forward] allocated: {torch.cuda.memory_allocated()/1e9:.2f} GB")
+                try:
+                    outputs, metrics = self.forward(True)
+                except torch.cuda.OutOfMemoryError:
+                    print(torch.cuda.memory_summary(device=self.device))
+                    raise
                 metrics = {k: v.detach().item() for k, v in metrics.items()}
                 # Call backward: back-propagate error and update weights using loss = self.loss
                 self.backward()
@@ -313,7 +334,8 @@ class ReconstructionEngine(ABC):
             self.dir = val_data["directions"].to(self.device) 
             #print(torch.mean(torch.abs(self.target),dim=0))
             # evaluate the network
-            outputs, metrics = self.forward(False)
+            with torch.no_grad():
+                outputs, metrics = self.forward(False)
             if val_metrics is None:
                 val_metrics = metrics
             else:
@@ -339,6 +361,7 @@ class ReconstructionEngine(ABC):
             self.val_log.log(log_entries)
         # return model to training mode
         self.model.train()
+        self.dir = None
 
     def evaluate(self, report_interval=20):
         """Evaluate the performance of the trained model on the test set."""
@@ -380,7 +403,7 @@ class ReconstructionEngine(ABC):
                     labels = torch.cat((labels, eval_data['labels']))
                     targets = torch.cat((targets, self.target))
                     for k in eval_outputs.keys():
-                        eval_outputs[k] = torch.cat((eval_outputs[k], outputs[k]))
+                        eval_outputs[k] = torch.cat((eval_outputs[k], outputs[k].cpu()))
                     for k in eval_metrics.keys():
                         eval_metrics[k] += metrics[k]
                 # print the metrics at given intervals
@@ -469,6 +492,8 @@ class ReconstructionEngine(ABC):
     def restore_state(self, weight_file):
         """Restore model and training state from a given filename."""
         # Open a file in read-binary mode
+        if "Module" in weight_file:
+            model = self.model.to(self.device)
         with open(weight_file, 'rb') as f:
             log.info(f"Restoring state from {weight_file}")
             # prevent loading while DDP operations are happening
@@ -476,10 +501,17 @@ class ReconstructionEngine(ABC):
                 torch.distributed.barrier()
             # torch interprets the file, then we can access using string keys
             checkpoint = torch.load(f, map_location=self.device)
-            # load network weights
-            self.module.load_state_dict(checkpoint['state_dict'])
-            # if optim is provided, load the state of the optim
-            if self.optimizer is not None:
-                self.optimizer.load_state_dict(checkpoint['optimizer'])
-            # load iteration count
-            self.iteration = checkpoint['global_step']
+            if "Module" in weight_file:
+                # 4. Apply the state dict (keys will match perfectly now)
+                if "state_dict" in checkpoint:
+                    model.load_state_dict(checkpoint["state_dict"])
+                else:
+                    model.load_state_dict(checkpoint)
+            else:
+                # load network weights
+                self.module.load_state_dict(checkpoint['state_dict'])
+                # if optim is provided, load the state of the optim
+                if self.optimizer is not None:
+                    self.optimizer.load_state_dict(checkpoint['optimizer'])
+                # load iteration count
+                self.iteration = checkpoint['global_step']

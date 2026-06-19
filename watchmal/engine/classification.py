@@ -2,10 +2,17 @@ import torch
 
 from watchmal.engine.reconstruction import ReconstructionEngine
 
+from torch.amp import autocast
+
+import numpy as np
+
+
+
 
 class ClassifierEngine(ReconstructionEngine):
     """Engine for performing training or evaluation for a classification network."""
-    def __init__(self, truth_key, model, rank, gpu, dump_path, label_set=None, eval_directory='/'):
+    def __init__(self, truth_key, model, rank, gpu, dump_path,
+                 label_set=None, eval_directory='/', mixup_alpha=0.0):
         """
         Parameters
         ==========
@@ -22,12 +29,15 @@ class ClassifierEngine(ReconstructionEngine):
         label_set : sequence
             The set of possible labels to classify (if None, which is the default, then class labels in the data must be
             0 to N).
+        mixup_alpha : float
+            The alpha parameter for the mixup data augmentation. 0.0 disables mixup.
         """
         # create the directory for saving the log and dump files
         super().__init__(truth_key, model, rank, gpu, dump_path)
         self.softmax = torch.nn.Softmax(dim=1)
-        self.eval_directory=eval_directory
+        self.eval_directory = eval_directory
         self.label_set = label_set
+        self.mixup_alpha = mixup_alpha  # 0.0 disables mixup
 
     def configure_data_loaders(self, data_config, loaders_config, is_distributed, seed):
         """
@@ -64,14 +74,32 @@ class ClassifierEngine(ReconstructionEngine):
             Dictionary containing loss, predicted labels, softmax, accuracy, and raw model outputs
         """
         with torch.set_grad_enabled(train):
-            # Move the data and the labels to the GPU (if using CPU this has no effect)
-            model_out = self.model(self.data)
-            softmax = self.softmax(model_out)
-            #print(f"MODEL OUT: {softmax}, TARGET: {self.target}")
-            predicted_labels = torch.argmax(model_out, dim=-1)
-            self.loss = self.criterion(model_out, self.target)
-            accuracy = (predicted_labels == self.target).sum() / float(predicted_labels.nelement())
-            outputs = {'softmax': softmax}
-            metrics = {'loss': self.loss,
-                       'accuracy': accuracy}
+            with autocast(device_type='cuda', dtype=torch.bfloat16, enabled=True):
+                
+                if train and self.mixup_alpha > 0.0:
+                    # Sample lambda from Beta(alpha, alpha)
+                    lam = np.random.beta(self.mixup_alpha, self.mixup_alpha)
+                    batch_size = self.data.size(0)
+                    perm = torch.randperm(batch_size, device=self.device)
+
+                    mixed_data = lam * self.data + (1 - lam) * self.data[perm]
+                    labels_a = self.target
+                    labels_b = self.target[perm]
+
+                    model_out = self.model(mixed_data)
+                    self.loss = lam * self.criterion(model_out, labels_a) \
+                              + (1 - lam) * self.criterion(model_out, labels_b)
+                    # Accuracy is measured against the dominant label
+                    predicted_labels = torch.argmax(model_out, dim=-1)
+                    accuracy = (predicted_labels == labels_a).sum() / float(predicted_labels.nelement())
+                else:
+                    model_out = self.model(self.data)
+                    self.loss = self.criterion(model_out, self.target)
+                    predicted_labels = torch.argmax(model_out, dim=-1)
+                    accuracy = (predicted_labels == self.target).sum() / float(predicted_labels.nelement())
+
+                softmax = self.softmax(model_out)
+
+        outputs = {'softmax': softmax.detach()}
+        metrics = {'loss': self.loss, 'accuracy': accuracy}
         return outputs, metrics
